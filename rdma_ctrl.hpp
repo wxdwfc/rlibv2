@@ -38,7 +38,7 @@ class RdmaCtrl {
   const int      node_id_;
   RMemoryFactory mr_factory;
 
-  //private:
+  //  private:
   // registered services
   std::map<int,req_handler_f>        registered_handlers;
 

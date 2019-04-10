@@ -22,24 +22,6 @@ enum IOStatus {
   WRONG_ID     = 6
 };
 
-struct ReplyHeader {
-  uint16_t reply_status;
-  uint16_t reply_payload;
-};
-
-typedef std::string Buf_t;
-inline Buf_t get_buffer(int size) {
-  return std::string(size,'0');
-}
-
-inline Buf_t null_reply() {
-  auto res        = get_buffer(sizeof(ReplyHeader));
-  auto reply_p    = (ReplyHeader *)(res.data());
-  reply_p->reply_status  = ERR;
-  reply_p->reply_payload = 0;
-  return res;
-}
-
 class QPDummy {
  public:
   bool valid() const {
@@ -74,3 +56,5 @@ inline int convert_mtu(ibv_mtu type) {
 }
 
 } // namespace rdmaio
+
+#include "marshal.hpp"

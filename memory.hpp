@@ -131,21 +131,27 @@ class RMemoryFactory {
   std::mutex lock;
 
  private:
+  // fetch the MR attribute from the registered mrs
   Buf_t get_mr_attr(uint64_t id) {
     std::lock_guard<std::mutex> lk(this->lock);
     if(registered_mrs.find(id) == registered_mrs.end()) {
       return "";
     }
-    Buf_t res = get_buffer(sizeof(RemoteMemory::Attr));
     auto attr = registered_mrs[id]->get_attr();
-    memcpy((void *)res.data(),&attr,sizeof(RemoteMemory::Attr));
-    return res;
+    return Marshal::serialize_to_buf(attr);
   }
 
+  /** The RPC handler for the mr request
+   * @Input = req:
+   * - the attribute of MR the requester wants to fetch
+   */
   Buf_t get_mr_handler(const Buf_t &req) {
+
+    auto reply = Marshal::null_reply();
+
     if (req.size() != sizeof(uint64_t))
-      return null_reply();
-    auto reply = null_reply();
+      return reply;
+
     auto reply_p    = (ReplyHeader *)(reply.data());
 
     auto mr_id = *((uint64_t *)(req.data()));

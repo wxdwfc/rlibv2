@@ -19,7 +19,13 @@ int main() {
     *((uint64_t *)req.data()) = 73;
 
     auto res = ctrl.registered_handlers[1](req);
-    RDMA_LOG(2) << res.capacity();
+    RemoteMemory::Attr attr;
+    RDMA_ASSERT(res.size() == (sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr)));
+
+    res = Marshal::forward(res,sizeof(ReplyHeader),sizeof(RemoteMemory::Attr));
+    RDMA_ASSERT(Marshal::deserialize(res,attr));
+    RDMA_LOG(4) << "get rkey: " << attr.key << "; buf: " << attr.buf;
+
     ctrl.mr_factory.deregister_mr(73);
   }
 }
