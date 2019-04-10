@@ -147,22 +147,27 @@ class RMemoryFactory {
    */
   Buf_t get_mr_handler(const Buf_t &req) {
 
-    auto reply = Marshal::null_reply();
-
     if (req.size() != sizeof(uint64_t))
-      return reply;
+      return Marshal::null_reply();
 
-    auto reply_p    = (ReplyHeader *)(reply.data());
+    uint64_t mr_id;
+    bool res = Marshal::deserialize(req,mr_id);
+    if(!res)
+      return Marshal::null_reply();
 
-    auto mr_id = *((uint64_t *)(req.data()));
+    ReplyHeader reply = { .reply_status = SUCC,.reply_payload = sizeof(RemoteMemory::Attr) };
+
     auto mr = get_mr_attr(mr_id);
 
-    if (mr.size() == 0)
-      reply_p->reply_status = NOT_READY;
-    else
-      reply_p->reply_status = SUCC;
-    reply.append(mr);
-    return reply;
+    if (mr.size() == 0) {
+      reply.reply_status = NOT_READY;
+      reply.reply_payload = 0;
+    }
+
+    // finally generate the reply
+    auto reply_buf = Marshal::serialize_to_buf(reply);
+    reply_buf.append(mr);
+    return reply_buf;
   }
 };
 
