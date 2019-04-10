@@ -37,6 +37,10 @@ enum RESERVED_REQ_ID {
   FREE   = 2
 };
 
+/**
+ * We use TCP/IP to identify the machine,
+ * since RDMA requires an additional naming mechanism.
+ */
 typedef std::tuple<std::string,int> MacID;
 
 class QPDummy {
@@ -48,7 +52,6 @@ class QPDummy {
   struct ibv_qp  *qp_ = nullptr;
   struct ibv_cq *cq_  = nullptr;
 }; // a placeholder for a dummy class
-
 
 } // namespace rdmaio
 

@@ -116,8 +116,8 @@ class RMemoryFactory {
                                   RemoteMemory::Attr &attr,
                                   const struct timeval &timeout = default_timeout) {
     Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr));
-    auto ret = get_helper(id,REQ_MR,Marshal::serialize_to_buf(static_cast<uint64_t>(mr_id)),
-                          reply,timeout);
+    auto ret = send_request(id,REQ_MR,Marshal::serialize_to_buf(static_cast<uint64_t>(mr_id)),
+                            reply,timeout);
     if(ret == SUCC) {
       // further we check the reply header
       ReplyHeader header = Marshal::deserialize<ReplyHeader>(reply);

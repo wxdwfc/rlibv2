@@ -25,14 +25,11 @@ struct ReqProgress {
 
 class RCQP : public QPDummy {
  public:
-  explicit RCQP(RNicHandler *rnic) : rnic_(rnic) {
+  explicit RCQP(RNicHandler &rnic) {
     // TODO, not implemented
   }
 
  private:
-  RNicHandler *rnic_;
-  MemoryAttr local_mr_;
-
   ReqProgress progress_;
 }; // end class QP
 
