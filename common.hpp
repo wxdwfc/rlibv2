@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <tuple>
 #include <infiniband/verbs.h>
 
 #include "logging.hpp"
@@ -19,8 +20,24 @@ enum IOStatus {
   ERR          = 3,
   NOT_READY    = 4,
   UNKNOWN      = 5,
-  WRONG_ID     = 6
+  WRONG_ID     = 6,
+  WRONG_REPLY  = 7
 };
+
+/**
+ * Programmer can register simple request handler to RdmaCtrl.
+ * The request can be bound to an ID.
+ * This function serves as the pre-link part of the system.
+ * So only simple function request handling is supported.
+ * For example, we use this to serve the QP and MR information to other nodes.
+ */
+enum RESERVED_REQ_ID {
+  REQ_QP = 0,
+  REQ_MR = 1,
+  FREE   = 2
+};
+
+typedef std::tuple<std::string,int> MacID;
 
 class QPDummy {
  public:
@@ -32,29 +49,9 @@ class QPDummy {
   struct ibv_cq *cq_  = nullptr;
 }; // a placeholder for a dummy class
 
-// some utilities function
-inline int convert_mtu(ibv_mtu type) {
-  int mtu = 0;
-  switch(type) {
-    case IBV_MTU_256:
-      mtu = 256;
-      break;
-    case IBV_MTU_512:
-      mtu = 512;
-      break;
-    case IBV_MTU_1024:
-      mtu = 1024;
-      break;
-    case IBV_MTU_2048:
-      mtu = 2048;
-      break;
-    case IBV_MTU_4096:
-      mtu = 4096;
-      break;
-  }
-  return mtu;
-}
 
 } // namespace rdmaio
 
 #include "marshal.hpp"
+#include "pre_connector.hpp"
+#include "util.hpp"

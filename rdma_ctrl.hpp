@@ -2,32 +2,29 @@
 
 #include "memory.hpp"
 
+#include <pthread.h>
 #include <functional>
 
 namespace rdmaio {
 
-/**
- * Programmer can register simple request handler to RdmaCtrl.
- * The request can be bound to an ID.
- * This function serves as the pre-link part of the system.
- * So only simple function request handling is supported.
- * For example, we use this to serve the QP and MR information to other nodes.
- */
-enum RESERVED_REQ_ID {
-  REQ_QP = 0,
-  REQ_MR = 1,
-  FREE   = 2
-};
-
 class RdmaCtrl {
  public:
-  RdmaCtrl(int node_id,int tcp_port,const std::string &ip = "localhost"):
-      node_id_(node_id) {
+  RdmaCtrl(int tcp_port,const std::string &ip = "localhost"):
+      host_id_(std::make_tuple(ip,tcp_port)) {
     RDMA_ASSERT(register_handler(REQ_MR,std::bind(&RMemoryFactory::get_mr_handler,
                                                   &mr_factory,std::placeholders::_1)));
+
+    // start the listener thread
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_create(&handler_tid_, &attr, &RdmaCtrl::listener_wrapper,this);
   }
 
-  ~RdmaCtrl() = default;
+  ~RdmaCtrl() {
+    running_ = false; // wait for the handler to join
+    pthread_join(handler_tid_,NULL);
+    RDMA_LOG(INFO) << "rdma controler close: does not handle any future connections.";
+  }
 
   typedef std::function<Buf_t (const Buf_t &req)> req_handler_f;
   bool register_handler(int rid,req_handler_f f) {
@@ -35,13 +32,16 @@ class RdmaCtrl {
   }
 
  public:
-  const int      node_id_;
+  const MacID host_id_;
   RMemoryFactory mr_factory;
 
   //  private:
   // registered services
   std::map<int,req_handler_f>        registered_handlers;
 
+ private:
+  volatile bool  running_ = true;
+  pthread_t handler_tid_;
   std::mutex lock;
 
   template <typename  T>
@@ -52,6 +52,67 @@ class RdmaCtrl {
       return true;
     }
     return false;
+  }
+
+  static void *listener_wrapper(void *context)
+  {
+    return ((RdmaCtrl *)context)->req_handling_loop();
+  }
+
+  /**
+   * The loop will receive the requests, and send reply back
+   * This is not optimized, since we rarely we need the controler to
+   * do performance critical jobs.
+   */
+  void *req_handling_loop(void) {
+    pthread_detach(pthread_self());
+    auto listenfd = PreConnector::get_listen_socket(std::get<0>(host_id_),std::get<1>(host_id_));
+
+    int opt = 1;
+    RDMA_VERIFY(ERROR,setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&opt,sizeof(int)) == 0)
+        << "unable to configure socket status.";
+    RDMA_VERIFY(ERROR,listen(listenfd,24) == 0) << "TCP listen error: " << strerror(errno);
+
+    while(running_) {
+
+      asm volatile("" ::: "memory");
+
+      struct sockaddr_in cli_addr = {0};
+      socklen_t clilen = sizeof(cli_addr);
+      auto csfd = accept(listenfd,(struct sockaddr *) &cli_addr, &clilen);
+
+      if(csfd < 0) {
+        RDMA_LOG(ERROR) << "accept a wrong connection error: " << strerror(errno);
+        continue;
+      }
+
+      if(!PreConnector::wait_recv(csfd,default_timeout)) {
+        close(csfd);
+        continue;
+      }
+
+      {
+        Buf_t buf = Marshal::get_buffer(4096);
+        auto n = recv(csfd,(char *)(buf.data()),4096,0);
+        if(n < sizeof(RequestHeader)) {
+          goto END;
+        }
+
+        RequestHeader header;
+        if(!Marshal::deserialize(buf,header))
+          goto END;
+
+        if(registered_handlers.find(header.req_type) == registered_handlers.end())
+          goto END;
+        auto reply = registered_handlers[header.req_type](
+            Marshal::forward(buf,sizeof(RequestHeader),header.req_payload));
+        RDMA_LOG(3) << "send reply...";
+        PreConnector::send_to(csfd,(char *)(reply.data()),reply.size());
+        PreConnector::wait_close(csfd); // wait for the client to close the connection
+      }
+   END:
+      close(csfd);
+    } // end loop
   }
 };
 

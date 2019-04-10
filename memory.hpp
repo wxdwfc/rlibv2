@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "rnic.hpp"
+#include "pre_connector.hpp"
 
 #include <mutex>
 #include <map>
@@ -109,6 +110,24 @@ class RMemoryFactory {
 
     registered_mrs.erase(registered_mrs.find(mr_id));
     return ERR;
+  }
+
+  static IOStatus fetch_remote_mr(int mr_id,const MacID &id,
+                                  RemoteMemory::Attr &attr,
+                                  const struct timeval &timeout = default_timeout) {
+    Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr));
+    auto ret = get_helper(id,REQ_MR,Marshal::serialize_to_buf(static_cast<uint64_t>(mr_id)),
+                          reply,timeout);
+    if(ret == SUCC) {
+      // further we check the reply header
+      ReplyHeader header = Marshal::deserialize<ReplyHeader>(reply);
+      if(header.reply_status == SUCC) {
+        reply = Marshal::forward(reply,sizeof(ReplyHeader),reply.size() - sizeof(ReplyHeader));
+        attr  = Marshal::deserialize<RemoteMemory::Attr>(reply);
+      } else
+        ret = static_cast<IOStatus>(header.reply_status);
+    }
+    return ret;
   }
 
   void deregister_mr(int mr_id) {

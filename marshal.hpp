@@ -35,10 +35,17 @@ class Marshal {
 
   template <typename T>
   static bool deserialize(const Buf_t &buf,T &t) {
-    if (buf.size() != sizeof(T))
+    if (buf.size() < sizeof(T))
       return false;
     memcpy((char *)(&t),buf.data(),sizeof(T));
     return true;
+  }
+
+  template <typename T>
+  static T deserialize(const Buf_t &buf) {
+    T res;
+    memcpy((char *)(&res),(char *)buf.data(),std::min(buf.size(),sizeof(T)));
+    return res;
   }
 
   static Buf_t null_req() {
