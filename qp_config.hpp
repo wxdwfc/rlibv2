@@ -6,10 +6,14 @@
 
 namespace rdmaio {
 
-const uint32_t DEFAULT_QKEY    = 0x111111;
-const uint32_t DEFAULT_PSN     = 3185;
+const uint32_t DEFAULT_QKEY     = 0x111111;
+const uint32_t DEFAULT_PSN      = 3185;
+const uint32_t RC_MAX_SEND_SIZE = 128;
+const uint32_t RC_MAX_RECV_SIZE = 2048;
 
+class RCQP;
 class RCConfig {
+  friend class RCQP;
  public:
   RCConfig() = default;
 
@@ -72,6 +76,8 @@ class RCConfig {
   int rq_psn             = DEFAULT_PSN;
   int sq_psn             = DEFAULT_PSN;
   int timeout            = 20;
+  int max_send_size      = RC_MAX_SEND_SIZE;
+  int max_recv_size      = RC_MAX_RECV_SIZE;
 }; // class RCConfig
 
 } // end namespace rdmaio

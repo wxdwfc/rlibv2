@@ -18,43 +18,49 @@ struct DevIdx {
 
 class RNicInfo;
 class RemoteMemory;
+class RCQP;
 
 // The RNIC handler
 class RNic {
   friend class RNicInfo;
   friend class RemoteMemory;
+  friend class RCQP;
  public:
-  RNic(DevIdx idx) :
-      idx(idx),
+  RNic(DevIdx idx,int gid = 0) :
+      id(idx),
       ctx(open_device(idx)),
-      pd(alloc_pd(ctx)) {
+      pd(alloc_pd(ctx)),
+      lid(fetch_lid(ctx,idx)),
+      addr(query_addr(gid)) {
   }
 
   bool ready() const {
-    return (ctx != nullptr) && (pd != nullptr);
+    return (ctx != nullptr) && (pd != nullptr) && lid >= 0;
   }
 
   ~RNic() {
     // pd must he deallocaed before ctx
     if(pd != nullptr) {
       RDMA_VERIFY(INFO,ibv_dealloc_pd(pd) == 0)
-          << "failed to dealloc pd at device " << idx
+          << "failed to dealloc pd at device " << id
           << "; w error " << strerror(errno);
     }
     if(ctx != nullptr) {
       RDMA_VERIFY(INFO,ibv_close_device(ctx) == 0)
-          << "failed to close device " << idx;
+          << "failed to close device " << id;
     }
-  }
 
+  }
   // members and private helper functions
  public:
-  const DevIdx idx;
+  const DevIdx id;
 
  private:
 
   struct ibv_context *ctx = nullptr;
   struct ibv_pd      *pd  = nullptr;
+  const int           lid = -1;
+  const qp_address_t  addr;
 
   struct ibv_context *open_device(DevIdx idx) {
 
@@ -87,6 +93,27 @@ class RNic {
       RDMA_LOG(WARNING) << "failed to alloc pd w error: " << strerror(errno);
     }
     return ret;
+  }
+
+  int fetch_lid(ibv_context *ctx,DevIdx idx) {
+    ibv_port_attr port_attr;
+    auto rc = ibv_query_port(ctx, idx.port_id, &port_attr);
+    if(rc >= 0)
+      return port_attr.lid;
+    return -1;
+  }
+
+  qp_address_t query_addr(uint8_t gid_index = 0) const {
+
+    ibv_gid gid;
+    ibv_query_gid(ctx,id.port_id,gid_index,&gid);
+
+    qp_address_t addr {
+      .subnet_prefix = gid.global.subnet_prefix,
+      .interface_id  = gid.global.interface_id,
+      .local_id      = gid_index
+    };
+    return addr;
   }
 }; // end class RNic
 

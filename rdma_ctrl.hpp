@@ -35,7 +35,7 @@ class RdmaCtrl {
   const MacID host_id_;
   RMemoryFactory mr_factory;
 
-  //  private:
+ private:
   // registered services
   std::map<int,req_handler_f>        registered_handlers;
 
@@ -98,15 +98,13 @@ class RdmaCtrl {
           goto END;
         }
 
-        RequestHeader header;
-        if(!Marshal::deserialize(buf,header))
-          goto END;
+        RequestHeader header = Marshal::deserialize(buf);
 
         if(registered_handlers.find(header.req_type) == registered_handlers.end())
           goto END;
         auto reply = registered_handlers[header.req_type](
             Marshal::forward(buf,sizeof(RequestHeader),header.req_payload));
-        RDMA_LOG(3) << "send reply...";
+
         PreConnector::send_to(csfd,(char *)(reply.data()),reply.size());
         PreConnector::wait_close(csfd); // wait for the client to close the connection
       }

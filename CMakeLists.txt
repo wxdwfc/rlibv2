@@ -27,11 +27,15 @@ ExternalProject_Add(ralloc
 
 add_executable(rnic "examples/rnic.cc")
 add_executable(simple_connect "examples/simple_connect.cc")
+add_executable(qp "examples/qp_test.cc")
 
 add_dependencies(rnic ralloc)
 target_link_libraries(rnic -lpthread ibverbs ${RALLOC_LIB})
 
 add_dependencies(simple_connect ralloc)
 target_link_libraries(simple_connect -lpthread ibverbs ${RALLOC_LIB})
+
+add_dependencies(qp ralloc)
+target_link_libraries(qp -lpthread ibverbs ${RALLOC_LIB})
 
 

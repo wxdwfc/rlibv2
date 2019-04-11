@@ -12,6 +12,7 @@
 
 namespace rdmaio {
 
+// some constants definiations
 // connection status
 enum IOStatus {
   SUCC         = 0,
@@ -37,6 +38,10 @@ enum RESERVED_REQ_ID {
   FREE   = 2
 };
 
+enum {
+  MAX_INLINE_SIZE = 64
+};
+
 /**
  * We use TCP/IP to identify the machine,
  * since RDMA requires an additional naming mechanism.
@@ -51,7 +56,14 @@ class QPDummy {
  protected:
   struct ibv_qp  *qp_ = nullptr;
   struct ibv_cq *cq_  = nullptr;
+  struct ibv_cq *recv_cq_ = nullptr;
 }; // a placeholder for a dummy class
+
+typedef struct {
+  uint64_t subnet_prefix;
+  uint64_t interface_id;
+  uint32_t local_id;
+} qp_address_t;
 
 } // namespace rdmaio
 
