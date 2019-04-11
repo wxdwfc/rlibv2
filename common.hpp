@@ -33,9 +33,11 @@ enum IOStatus {
  * For example, we use this to serve the QP and MR information to other nodes.
  */
 enum RESERVED_REQ_ID {
-  REQ_QP = 0,
-  REQ_MR = 1,
-  FREE   = 2
+  REQ_RC = 0,
+  REQ_UD = 1,
+  REQ_UC = 2,
+  REQ_MR = 3,
+  FREE   = 4
 };
 
 enum {

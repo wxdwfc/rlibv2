@@ -14,8 +14,9 @@
 
 namespace rdmaio {
 
-constexpr struct timeval default_timeout = {0,8000};
-constexpr struct timeval no_timeout      = {0,0};  // it means forever
+typedef struct timeval Duration_t;
+constexpr Duration_t default_timeout = {0,8000};
+constexpr Duration_t no_timeout      = {0,0};  // it means forever
 
 class PreConnector { // helper class used to exchange QP information using TCP/IP
  public:
@@ -39,7 +40,7 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     return sockfd;
   }
 
-  static int get_send_socket(const std::string &addr,int port,struct timeval timeout = default_timeout) {
+  static int get_send_socket(const std::string &addr,int port,Duration_t timeout = default_timeout) {
     int sockfd;
     struct sockaddr_in serv_addr;
 
@@ -88,7 +89,7 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     return sockfd;
   }
 
-  static bool wait_recv(int socket, const struct timeval &timeout) {
+  static bool wait_recv(int socket, const Duration_t &timeout) {
 
     while(true) {
 
@@ -96,7 +97,7 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
       FD_ZERO(&rfds);
       FD_SET(socket, &rfds);
 
-      struct timeval s_timeout = timeout;
+      Duration_t s_timeout = timeout;
       int ready = select(socket + 1, &rfds, NULL, NULL, &s_timeout);
       RDMA_ASSERT(ready != -1);
 
@@ -120,7 +121,7 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     shutdown(socket, SHUT_WR);
     char buf[2];
 
-    struct timeval timeout={1,0};
+    Duration_t timeout={1,0};
     auto ret = setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
     RDMA_ASSERT(ret == 0);
 

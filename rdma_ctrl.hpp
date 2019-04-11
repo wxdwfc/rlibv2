@@ -13,6 +13,8 @@ class RdmaCtrl {
       host_id_(std::make_tuple(ip,tcp_port)) {
     RDMA_ASSERT(register_handler(REQ_MR,std::bind(&RMemoryFactory::get_mr_handler,
                                                   &mr_factory,std::placeholders::_1)));
+    RDMA_ASSERT(register_handler(REQ_RC,std::bind(&QPFactory::get_rc_handler,
+                                                  &qp_factory,std::placeholders::_1)));
 
     // start the listener thread
     pthread_attr_t attr;
@@ -34,6 +36,7 @@ class RdmaCtrl {
  public:
   const MacID host_id_;
   RMemoryFactory mr_factory;
+  QPFactory      qp_factory;
 
  private:
   // registered services

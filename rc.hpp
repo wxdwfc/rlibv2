@@ -26,28 +26,75 @@ struct Progress {
 
 class RCQP : public QPDummy {
  public:
-  explicit RCQP(RNic &rnic,
-                const RemoteMemory::Attr &remote_mem,
-                const RemoteMemory::Attr &local_mem,
-                const RCConfig &config,bool two_sided = false) :
+  RCQP(RNic &rnic,
+       const RemoteMemory::Attr &remote_mem,
+       const RemoteMemory::Attr &local_mem,
+       const RCConfig &config,bool two_sided = false) :
       remote_mem_(remote_mem),
       local_mem_(local_mem),
       lid(rnic.lid),
-      addr(rnic.addr)
-  {
+      addr(rnic.addr) {
     cq_ = create_cq(rnic, config.max_send_size);
     if(two_sided)
       recv_cq_ = create_cq(rnic,config.max_recv_size);
     qp_ = create_qp(rnic, config, cq_, recv_cq_);
   }
 
+  typedef struct {
+    ibv_wr_opcode op;
+    int flags;
+    uint32_t len   = 0;
+    uint64_t wr_id = 0;
+  } ReqMeta;
+
+  typedef struct ReqContent {
+    char *local_buf = nullptr;
+    uint64_t remote_addr;
+    uint64_t imm_data;
+  };
+
+  IOStatus send(const ReqMeta &meta,const ReqContent &req) {
+    return send(meta,req,remote_mem_,local_mem_);
+  }
+
+  IOStatus send(const ReqMeta &meta,const ReqContent &req,
+                const RemoteMemory::Attr &remote_attr,
+                const RemoteMemory::Attr &local_attr) {
+    // setting the SGE
+    struct ibv_sge sge {
+      .addr = (uint64_t)(req.local_buf),
+      .length = meta.len,
+      .lkey   = local_attr.key
+    };
+
+    struct ibv_send_wr sr, *bad_sr;
+
+    sr.wr_id        = meta.wr_id;
+    sr.opcode       = meta.op;
+    sr.num_sge      = 1;
+    sr.next         = nullptr;
+    sr.sg_list      = &sge;
+    sr.send_flags   = meta.flags;
+    sr.imm_data     = req.imm_data;
+
+    sr.wr.rdma.remote_addr = remote_attr.buf + req.remote_addr;
+    sr.wr.rdma.rkey        = remote_attr.key;
+
+    auto rc = ibv_post_send(qp_,&sr,&bad_sr);
+    return rc == 0 ? SUCC : ERR;
+  }
+
+  int poll_send_cq(ibv_wc &wc) {
+    return ibv_poll_cq(cq_,1,&wc);
+  }
+
  private:
   RemoteMemory::Attr remote_mem_;
   RemoteMemory::Attr local_mem_;
-  Progress           progress_;
  public:
   const     qp_address_t addr;
   const              int lid;
+  Progress               progress_;
 
  public:
   static ibv_cq * create_cq(const RNic &rnic,int size) {

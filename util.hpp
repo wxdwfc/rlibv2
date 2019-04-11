@@ -2,6 +2,16 @@
 
 namespace rdmaio {
 
+class Info {
+  static std::string qp_addr_to_str(const qp_address_t &addr) {
+    std::stringstream ostr("{");
+    ostr << "subnet_prefix: " << addr.subnet_prefix << ";"
+         << "interface_id:  " << addr.interface_id << ";"
+         << "local_id:      " << addr.local_id << "}";
+    return ostr.str();
+  }
+};
+
 // some utilities function
 inline int convert_mtu(ibv_mtu type) {
   int mtu = 0;
@@ -56,6 +66,11 @@ ERR_RET:
   shutdown(socket,SHUT_RDWR);
   close(socket);
   return ret;
+}
+
+inline IOStatus poll_till_completion(ibv_cq *cq) {
+  // TODO: implement
+  return SUCC;
 }
 
 } // end namespace rdmaio
