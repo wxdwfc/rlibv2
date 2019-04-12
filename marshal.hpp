@@ -57,7 +57,7 @@ class Marshal {
   template <typename T>
   static void *deserialize(const void *buf,T &t) {
     memcpy((char *)(&t),buf,sizeof(T));
-    return buf + sizeof(T);
+    return static_cast<void *>((char *)buf + sizeof(T));
   }
 
   template <typename T>

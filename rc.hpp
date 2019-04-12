@@ -72,8 +72,8 @@ class RCQP : public QPDummy {
 
   struct ReqContent {
     char *local_buf = nullptr;
-    uint64_t remote_addr;
-    uint64_t imm_data;
+    uint64_t remote_addr = 0;
+    uint64_t imm_data    = 0;
   };
 
   IOStatus send(const ReqMeta &meta,const ReqContent &req) {
@@ -109,6 +109,10 @@ class RCQP : public QPDummy {
 
   int poll_send_cq(ibv_wc &wc) {
     return ibv_poll_cq(cq_,1,&wc);
+  }
+
+  IOStatus poll_completion(ibv_wc &wc,const Duration_t &timeout = no_timeout) {
+    return poll_completion_helper(cq_,wc,timeout);
   }
 
  private:

@@ -69,8 +69,37 @@ ERR_RET:
   return ret;
 }
 
-inline IOStatus poll_till_completion(ibv_cq *cq) {
-  // TODO: implement
+// return t1 - t0
+inline uint64_t time_gap(const Duration_t &t1, const Duration_t &t0) {
+  if (t1.tv_sec < t1.tv_sec)
+    return 0;
+  return ((t1.tv_sec - t0.tv_sec) * 1000000L + (t1.tv_usec - t0.tv_usec));
+}
+
+inline uint64_t time_to_micro(const Duration_t &t) {
+  return t.tv_sec * 1000000L + t.tv_usec;
+}
+
+inline IOStatus poll_completion_helper(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout)
+{
+
+  Duration_t start; gettimeofday(&start,nullptr);
+  Duration_t now;   gettimeofday(&now,nullptr);
+
+  int poll_result(0);
+  do {
+    asm volatile("" ::: "memory");
+    poll_result = ibv_poll_cq(cq, 1, &wc);
+    gettimeofday(&now,nullptr);
+  } while(poll_result == 0 && !(time_gap(now,start) < time_to_micro(timeout)));
+
+  if(poll_result == 0)
+    return TIMEOUT;
+  if(poll_result < 0 || wc.status != IBV_WC_SUCCESS) {
+    RDMA_LOG_IF(4,wc.status != IBV_WC_SUCCESS) <<
+        "poll till completion error: " << wc.status << " " << ibv_wc_status_str(wc.status);
+    return ERR;
+  }
   return SUCC;
 }
 
