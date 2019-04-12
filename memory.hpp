@@ -114,7 +114,7 @@ class RMemoryFactory {
 
   static IOStatus fetch_remote_mr(int mr_id,const MacID &id,
                                   RemoteMemory::Attr &attr,
-                                  const struct timeval &timeout = default_timeout) {
+                                  const Duration_t &timeout = default_timeout) {
     Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr));
     auto ret = send_request(id,REQ_MR,Marshal::serialize_to_buf(static_cast<uint64_t>(mr_id)),
                             reply,timeout);

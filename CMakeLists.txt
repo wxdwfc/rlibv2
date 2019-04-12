@@ -25,17 +25,23 @@ ExternalProject_Add(ralloc
   INSTALL_COMMAND make install
 )
 
+SET(TESTS
+    rnic
+    simple_connect
+    qp
+    pclient
+    pserver
+    )
+
 add_executable(rnic "examples/rnic.cc")
 add_executable(simple_connect "examples/simple_connect.cc")
 add_executable(qp "examples/qp_test.cc")
+add_executable(pclient "examples/rc_pingpong/client.cc")
+add_executable(pserver "examples/rc_pingpong/server.cc")
 
-add_dependencies(rnic ralloc)
-target_link_libraries(rnic -lpthread ibverbs ${RALLOC_LIB})
-
-add_dependencies(simple_connect ralloc)
-target_link_libraries(simple_connect -lpthread ibverbs ${RALLOC_LIB})
-
-add_dependencies(qp ralloc)
-target_link_libraries(qp -lpthread ibverbs ${RALLOC_LIB})
+FOREACH(TEST ${TESTS}) 
+             add_dependencies(${TEST} ralloc)
+             target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB})
+ENDFOREACH()
 
 

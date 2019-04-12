@@ -24,6 +24,18 @@ struct Progress {
   }
 };
 
+struct QPAttr {
+  QPAttr(const qp_address_t &addr,int lid,int qpn,int psn,int port_id):
+      addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
+  }
+  QPAttr() {}
+  qp_address_t addr;
+  int lid;
+  int qpn;
+  int psn;
+  int port_id;
+};
+
 class RCQP : public QPDummy {
  public:
   RCQP(RNic &rnic,
@@ -33,21 +45,32 @@ class RCQP : public QPDummy {
       remote_mem_(remote_mem),
       local_mem_(local_mem),
       lid(rnic.lid),
-      addr(rnic.addr) {
+      port_id(rnic.id.port_id),
+      attr(rnic.addr,rnic.lid,0,config.rq_psn,rnic.id.port_id) {
     cq_ = create_cq(rnic, config.max_send_size);
     if(two_sided)
       recv_cq_ = create_cq(rnic,config.max_recv_size);
+    else
+      recv_cq_ = cq_;
     qp_ = create_qp(rnic, config, cq_, recv_cq_);
+    if(qp_ != nullptr) attr.qpn = qp_->qp_num;
   }
 
-  typedef struct {
+  IOStatus connect(const QPAttr &attr, const RCConfig &config) {
+    if(qp_status() == IBV_QPS_RTS) return SUCC;
+    if(!bring_qp_to_rcv(qp_, config, attr, port_id)) return ERR;
+    if(!bring_qp_to_send(qp_, config)) return ERR;
+    return SUCC;
+  }
+
+  struct ReqMeta {
     ibv_wr_opcode op;
     int flags;
     uint32_t len   = 0;
     uint64_t wr_id = 0;
-  } ReqMeta;
+  };
 
-  typedef struct ReqContent {
+  struct ReqContent {
     char *local_buf = nullptr;
     uint64_t remote_addr;
     uint64_t imm_data;
@@ -91,10 +114,13 @@ class RCQP : public QPDummy {
  private:
   RemoteMemory::Attr remote_mem_;
   RemoteMemory::Attr local_mem_;
+  QPAttr    attr;
+
  public:
-  const     qp_address_t addr;
-  const              int lid;
-  Progress               progress_;
+  QPAttr    get_attr() const { return attr;}
+  const     int    lid;
+  const     int    port_id;
+  Progress  progress_;
 
  public:
   static ibv_cq * create_cq(const RNic &rnic,int size) {
@@ -143,6 +169,62 @@ class RCQP : public QPDummy {
       return true;
     }
     return false;
+  }
+
+  static bool bring_qp_to_rcv(ibv_qp *qp,const RCConfig &config,const QPAttr &attr,int port_id) {
+    struct ibv_qp_attr qp_attr = {};
+    qp_attr.qp_state              = IBV_QPS_RTR;
+    qp_attr.path_mtu              = IBV_MTU_4096;
+    qp_attr.dest_qp_num           = attr.qpn;
+    qp_attr.rq_psn                = config.rq_psn; // should this match the sender's psn ?
+    qp_attr.max_dest_rd_atomic    = config.max_dest_rd_atomic;
+    qp_attr.min_rnr_timer         = 20;
+
+    qp_attr.ah_attr.dlid          = attr.lid;
+    qp_attr.ah_attr.sl            = 0;
+    qp_attr.ah_attr.src_path_bits = 0;
+    qp_attr.ah_attr.port_num      = port_id; /* Local port id! */
+
+    qp_attr.ah_attr.is_global                     = 1;
+    qp_attr.ah_attr.grh.dgid.global.subnet_prefix = attr.addr.subnet_prefix;
+    qp_attr.ah_attr.grh.dgid.global.interface_id  = attr.addr.interface_id;
+    qp_attr.ah_attr.grh.sgid_index                = 0;
+    qp_attr.ah_attr.grh.flow_label                = 0;
+    qp_attr.ah_attr.grh.hop_limit                 = 255;
+
+    int flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN
+                | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
+    auto rc = ibv_modify_qp(qp, &qp_attr,flags);
+    return rc == 0;
+  }
+
+  static bool bring_qp_to_send(ibv_qp *qp,const RCConfig &config) {
+    int rc, flags;
+    struct ibv_qp_attr qp_attr = {};
+
+    qp_attr.qp_state           = IBV_QPS_RTS;
+    qp_attr.sq_psn             = config.sq_psn;
+    qp_attr.timeout            = config.timeout;
+    qp_attr.retry_cnt          = 7;
+    qp_attr.rnr_retry          = 7;
+    qp_attr.max_rd_atomic      = config.max_rd_atomic;
+    qp_attr.max_dest_rd_atomic = config.max_dest_rd_atomic;
+
+    flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
+            IBV_QP_MAX_QP_RD_ATOMIC;
+    rc = ibv_modify_qp(qp, &qp_attr,flags);
+    return rc == 0;
+  }
+
+ private:
+  /**
+   * return whether qp is in {INIT,READ_TO_RECV,READY_TO_SEND} states
+   */
+  ibv_qp_state qp_status() const {
+    struct ibv_qp_attr attr;
+    struct ibv_qp_init_attr init_attr;
+    RDMA_ASSERT(ibv_query_qp(qp_, &attr,IBV_QP_STATE, &init_attr) == 0);
+    return attr.qp_state;
   }
 }; // end class QP
 

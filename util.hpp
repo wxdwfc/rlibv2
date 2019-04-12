@@ -3,6 +3,7 @@
 namespace rdmaio {
 
 class Info {
+ public:
   static std::string qp_addr_to_str(const qp_address_t &addr) {
     std::stringstream ostr("{");
     ostr << "subnet_prefix: " << addr.subnet_prefix << ";"

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memory.hpp"
+#include "qp_factory.hpp"
 
 #include <pthread.h>
 #include <functional>
@@ -101,7 +102,7 @@ class RdmaCtrl {
           goto END;
         }
 
-        RequestHeader header = Marshal::deserialize(buf);
+        RequestHeader header = Marshal::deserialize<RequestHeader>(buf);
 
         if(registered_handlers.find(header.req_type) == registered_handlers.end())
           goto END;

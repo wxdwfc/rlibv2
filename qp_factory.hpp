@@ -27,7 +27,25 @@ class QPFactory {
   }
 
   bool register_ud_qp(int id,RCQP *qp) {
+    return false;
+  }
 
+  static IOStatus fetch_qp_addr(int qp_id,const MacID &id,
+                                QPAttr &attr,
+                                const Duration_t &timeout = default_timeout) {
+    Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(QPAttr));
+    auto ret = send_request(id,REQ_RC,Marshal::serialize_to_buf(static_cast<uint64_t>(qp_id)),
+                            reply,timeout);
+    if(ret == SUCC) {
+      // further we check the reply header
+      ReplyHeader header = Marshal::deserialize<ReplyHeader>(reply);
+      if(header.reply_status == SUCC) {
+        reply = Marshal::forward(reply,sizeof(ReplyHeader),reply.size() - sizeof(ReplyHeader));
+        attr  = Marshal::deserialize<QPAttr>(reply);
+      } else
+        ret = static_cast<IOStatus>(header.reply_status);
+    }
+    return ret;
   }
 
  private:
@@ -40,19 +58,19 @@ class QPFactory {
 
   Buf_t get_rc_addr(uint64_t id) {
     std::lock_guard<std::mutex> lk(this->lock);
-    if(registered_mrs.find(id) == registered_mrs.end()) {
+    if(rc_qps.find(id) == rc_qps.end()) {
       return "";
     }
-    auto attr = rc_qps[id]->addr;
+    auto attr = rc_qps[id]->get_attr();
     return Marshal::serialize_to_buf(attr);
   }
 
   Buf_t get_ud_addr(uint64_t id) {
     std::lock_guard<std::mutex> lk(this->lock);
-    if(registered_mrs.find(id) == registered_mrs.end()) {
+    if(rc_qps.find(id) == rc_qps.end()) {
       return "";
     }
-    auto attr = rc_qps[id]->addr;
+    auto attr = rc_qps[id]->get_attr();
     return Marshal::serialize_to_buf(attr);
   }
 
@@ -66,7 +84,7 @@ class QPFactory {
       return Marshal::null_reply();
 
     uint64_t qp_id;
-    bool res = Marshal::deserialize(req,mr_id);
+    bool res = Marshal::deserialize(req,qp_id);
     if(!res)
       return Marshal::null_reply();
 
@@ -91,7 +109,7 @@ class QPFactory {
       return Marshal::null_reply();
 
     uint64_t qp_id;
-    bool res = Marshal::deserialize(req,mr_id);
+    bool res = Marshal::deserialize(req,qp_id);
     if(!res)
       return Marshal::null_reply();
 
