@@ -3,6 +3,9 @@
 
 using namespace rdmaio;
 
+/**
+ * This example gives how to query the RNic information using RLib.
+ */
 int main() {
 
   RDMA_LOG(2) << "This example prints the RNIC information on this machine.";
@@ -16,7 +19,7 @@ int main() {
 
   // open an RNic handler, which is used to create QP, register MR, etc
   RNic nic({.dev_id = 0,.port_id = 1});
-  RDMA_LOG(2) << "nic " << nic.idx << " ready: " << nic.ready();
+  RDMA_LOG(2) << "nic " << nic.id << " ready: " << nic.ready();
 
   // set a configuration of a QP
   RCConfig config;

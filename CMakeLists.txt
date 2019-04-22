@@ -12,6 +12,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 ## path to ralloc lib, which you need to build manually
 set(RALLOC_LIB "${PROJECT_SOURCE_DIR}/lib/libssmalloc.a")
 
+## gflags
+set(gflags_DIR "${CMAKE_SOURCE_DIR}/examples/gflags")
+add_subdirectory(${gflags_DIR})
+include_directories(${gflags_DIR}/include)
+set_property(DIRECTORY ${gflags_DIR} PROPERTY COMPILE_DEFINITIONS STRIP_FLAG_HELP=1)
+
 ## include paths
 include_directories(ralloc)
 
@@ -40,8 +46,8 @@ add_executable(pclient "examples/rc_pingpong/client.cc")
 add_executable(pserver "examples/rc_pingpong/server.cc")
 
 FOREACH(TEST ${TESTS}) 
-             add_dependencies(${TEST} ralloc)
-             target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB})
+             add_dependencies(${TEST} ralloc gflags)
+             target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB} ${gflags_DIR}/libgflags_nothreads.a)
 ENDFOREACH()
 
 

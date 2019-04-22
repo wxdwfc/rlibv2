@@ -5,15 +5,17 @@ using namespace rdmaio;
 
 const int tcp_port = 8888;
 
+/**
+ * This file shows an exmaple of how to fetch remote mr attributes using RdmaCtrl.
+ */
 int main() {
 
-  // TODO: rnic should be dealloced before RdmaCtrl!
   {
     RdmaCtrl ctrl(tcp_port);
     char *test_buffer = new char[64];
 
     RNic nic({.dev_id = 0,.port_id = 1});
-    RDMA_LOG(2) << "nic " << nic.idx << " ready: " << nic.ready();
+    RDMA_LOG(2) << "nic " << nic.id << " ready: " << nic.ready();
 
     RDMA_LOG(2) << ctrl.mr_factory.register_mr(73,test_buffer,64,nic);
 
