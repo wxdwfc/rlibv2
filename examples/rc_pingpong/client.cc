@@ -40,7 +40,7 @@ int main(int argc,char **argv) {
 
     // connect the QP
     QPAttr attr;
-    ret = QPFactory::fetch_rc_addr(0,std::make_tuple(FLAGS_server_ip,TCP_PORT),
+    ret = QPFactory::fetch_qp_addr(QPFactory::RC,0,std::make_tuple(FLAGS_server_ip,TCP_PORT),
                                    attr);
     RDMA_ASSERT(ret == SUCC);
     RDMA_LOG(4) << Info::qp_addr_to_str(attr.addr);

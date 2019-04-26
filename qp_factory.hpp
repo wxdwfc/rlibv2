@@ -27,15 +27,24 @@ class QPFactory {
     return true;
   }
 
-  bool register_ud_qp(int id,RCQP *qp) {
-    return false;
+  bool register_ud_qp(int id,UDQP *qp) {
+    std::lock_guard<std::mutex> lk(this->lock);
+    if(ud_qps.find(id) != ud_qps.end())
+      return false;
+    ud_qps.insert(std::make_pair(id,qp));
+    return true;
   }
 
-  static IOStatus fetch_rc_addr(int qp_id,const MacID &id,
+  enum TYPE {
+    RC = REQ_RC,
+    UD = REQ_UD
+  };
+
+  static IOStatus fetch_qp_addr(TYPE type,int qp_id,const MacID &id,
                                 QPAttr &attr,
                                 const Duration_t &timeout = default_timeout) {
     Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(QPAttr));
-    auto ret = send_request(id,REQ_RC,Marshal::serialize_to_buf(static_cast<uint64_t>(qp_id)),
+    auto ret = send_request(id,type,Marshal::serialize_to_buf(static_cast<uint64_t>(qp_id)),
                             reply,timeout);
     if(ret == SUCC) {
       // further we check the reply header
@@ -51,7 +60,7 @@ class QPFactory {
 
  private:
   std::map<int,RCQP *>   rc_qps;
-  std::map<int,RCQP *>   ud_qps;
+  std::map<int,UDQP *>   ud_qps;
 
   // TODO: add UC QPs
 
