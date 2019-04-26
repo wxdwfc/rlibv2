@@ -12,46 +12,48 @@ const uint32_t RC_MAX_SEND_SIZE = 128;
 const uint32_t RC_MAX_RECV_SIZE = 2048;
 
 class RCQP;
-class RCConfig {
-  friend class RCQP;
- public:
-  RCConfig() = default;
+class UDQP;
+class QPUtily;
 
-  RCConfig &set_access_flags(int flags) {
+class QPConfig {
+ public:
+  QPConfig() = default;
+
+  QPConfig &set_access_flags(int flags) {
     access_flags = flags;
     return *this;
   }
 
-  RCConfig &clear_access_flags() {
+  QPConfig &clear_access_flags() {
     return set_access_flags(0);
   }
 
-  RCConfig &set_max_rd_ops(int max_rd) {
+  QPConfig &set_max_rd_ops(int max_rd) {
     max_rd_atomic = (max_dest_rd_atomic = max_rd);
     return *this;
   }
 
-  RCConfig &set_psn(int psn) {
+  QPConfig &set_psn(int psn) {
     rq_psn = (sq_psn = psn);
     return *this;
   }
 
-  RCConfig &set_timeout(int timeout) {
+  QPConfig &set_timeout(int timeout) {
     timeout = timeout;
     return *this;
   }
 
-  RCConfig &add_access_write() {
+  QPConfig &add_access_write() {
     access_flags |= IBV_ACCESS_REMOTE_WRITE;
     return *this;
   }
 
-  RCConfig &add_access_read() {
+  QPConfig &add_access_read() {
     access_flags |= IBV_ACCESS_REMOTE_READ;
     return *this;
   }
 
-  RCConfig &add_access_atomic() {
+  QPConfig &add_access_atomic() {
     access_flags |= IBV_ACCESS_REMOTE_ATOMIC;
     return *this;
   }
@@ -78,6 +80,10 @@ class RCConfig {
   int timeout            = 20;
   int max_send_size      = RC_MAX_SEND_SIZE;
   int max_recv_size      = RC_MAX_RECV_SIZE;
-}; // class RCConfig
+
+  friend class RCQP;
+  friend class UDQP;
+  friend class QPUtily;
+}; // class QPConfig
 
 } // end namespace rdmaio

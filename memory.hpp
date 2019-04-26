@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "rnic.hpp"
 #include "pre_connector.hpp"
+#include "util.hpp"
 
 #include <mutex>
 #include <map>

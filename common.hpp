@@ -50,6 +50,9 @@ enum {
  * since RDMA requires an additional naming mechanism.
  */
 typedef std::tuple<std::string,int> MacID;
+inline MacID make_id(const std::string &ip,int port) {
+  return std::make_tuple(ip,port);
+}
 
 class QPDummy {
  public:
@@ -68,8 +71,19 @@ typedef struct {
   uint32_t local_id;
 } qp_address_t;
 
+struct QPAttr {
+  QPAttr(const qp_address_t &addr,int lid,int psn,int port_id,int qpn = 0):
+      addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
+  }
+  QPAttr() {}
+  qp_address_t addr;
+  int lid;
+  int psn;
+  int port_id;
+  int qpn;
+};
+
 } // namespace rdmaio
 
 #include "marshal.hpp"
 #include "pre_connector.hpp"
-#include "util.hpp"

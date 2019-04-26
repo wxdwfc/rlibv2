@@ -23,7 +23,7 @@ int main() {
     RDMA_ASSERT((ctrl.mr_factory.register_mr(GLOBAL_MR_ID,test_buffer,1024,nic)) == SUCC);
 
     RemoteMemory::Attr local_mr_attr;
-    RCQP *qp = new RCQP(nic,local_mr_attr,local_mr_attr,RCConfig());
+    RCQP *qp = new RCQP(nic,local_mr_attr,local_mr_attr,QPConfig());
     RDMA_ASSERT(qp->valid());
 
     // dummy spin

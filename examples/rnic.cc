@@ -22,7 +22,7 @@ int main() {
   RDMA_LOG(2) << "nic " << nic.id << " ready: " << nic.ready();
 
   // set a configuration of a QP
-  RCConfig config;
+  QPConfig config;
   config.clear_access_flags().add_access_read();
   RDMA_LOG(2) << config.desc_access_flags();
 

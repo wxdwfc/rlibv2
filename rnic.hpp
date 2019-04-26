@@ -19,12 +19,11 @@ struct DevIdx {
 class RNicInfo;
 class RemoteMemory;
 class RCQP;
+class UDQP;
+class QPUtily;
 
 // The RNIC handler
 class RNic {
-  friend class RNicInfo;
-  friend class RemoteMemory;
-  friend class RCQP;
  public:
   RNic(DevIdx idx,int gid = 0) :
       id(idx),
@@ -115,6 +114,12 @@ class RNic {
     };
     return addr;
   }
+
+  friend class RNicInfo;
+  friend class RemoteMemory;
+  friend class QPUtily;
+  friend class RCQP;
+  friend class UDQP;
 }; // end class RNic
 
 /**

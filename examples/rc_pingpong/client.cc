@@ -33,19 +33,19 @@ int main(int argc,char **argv) {
                                                local_mr_attr);
     RDMA_ASSERT(ret == SUCC);
 
-    RCQP *qp = new RCQP(nic,local_mr_attr,local_mr_attr,RCConfig());
+    RCQP *qp = new RCQP(nic,local_mr_attr,local_mr_attr,QPConfig());
     RDMA_ASSERT(qp->valid());
 
     RDMA_ASSERT(ctrl.qp_factory.register_rc_qp(0,qp));
 
     // connect the QP
     QPAttr attr;
-    ret = QPFactory::fetch_qp_addr(0,std::make_tuple(FLAGS_server_ip,TCP_PORT),
+    ret = QPFactory::fetch_rc_addr(0,std::make_tuple(FLAGS_server_ip,TCP_PORT),
                                    attr);
     RDMA_ASSERT(ret == SUCC);
     RDMA_LOG(4) << Info::qp_addr_to_str(attr.addr);
 
-    RDMA_ASSERT(qp->connect(attr,RCConfig()) == SUCC);
+    RDMA_ASSERT(qp->connect(attr,QPConfig()) == SUCC);
 
     // now we try to post one message to myself
     // ... TODO
@@ -63,7 +63,7 @@ int main(int argc,char **argv) {
     RDMA_ASSERT(ret == SUCC);
 #endif
     ibv_wc wc;
-    ret = qp->poll_completion(wc);
+    ret = qp->wait_completion(wc);
     RDMA_ASSERT(ret == SUCC);
 
     uint64_t res = Marshal::deserialize<uint64_t>(local_buf);

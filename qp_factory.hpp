@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rc.hpp"
+#include "ud.hpp"
 
 #include <map>
 
@@ -30,7 +31,7 @@ class QPFactory {
     return false;
   }
 
-  static IOStatus fetch_qp_addr(int qp_id,const MacID &id,
+  static IOStatus fetch_rc_addr(int qp_id,const MacID &id,
                                 QPAttr &attr,
                                 const Duration_t &timeout = default_timeout) {
     Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(QPAttr));
@@ -67,10 +68,10 @@ class QPFactory {
 
   Buf_t get_ud_addr(uint64_t id) {
     std::lock_guard<std::mutex> lk(this->lock);
-    if(rc_qps.find(id) == rc_qps.end()) {
+    if(ud_qps.find(id) == ud_qps.end()) {
       return "";
     }
-    auto attr = rc_qps[id]->get_attr();
+    auto attr = ud_qps[id]->get_attr();
     return Marshal::serialize_to_buf(attr);
   }
 

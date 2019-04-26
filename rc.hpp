@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "qp_config.hpp"
 #include "memory.hpp"
+#include "util.hpp"
 
 namespace rdmaio {
 
@@ -24,42 +25,28 @@ struct Progress {
   }
 };
 
-struct QPAttr {
-  QPAttr(const qp_address_t &addr,int lid,int qpn,int psn,int port_id):
-      addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
-  }
-  QPAttr() {}
-  qp_address_t addr;
-  int lid;
-  int qpn;
-  int psn;
-  int port_id;
-};
-
 class RCQP : public QPDummy {
  public:
   RCQP(RNic &rnic,
        const RemoteMemory::Attr &remote_mem,
        const RemoteMemory::Attr &local_mem,
-       const RCConfig &config,bool two_sided = false) :
+       const QPConfig &config,bool two_sided = false) :
       remote_mem_(remote_mem),
       local_mem_(local_mem),
-      lid(rnic.lid),
-      port_id(rnic.id.port_id),
-      attr(rnic.addr,rnic.lid,0,config.rq_psn,rnic.id.port_id) {
-    cq_ = create_cq(rnic, config.max_send_size);
+      attr(rnic.addr,rnic.lid,config.rq_psn,rnic.id.port_id) {
+    cq_ = QPUtily::create_cq(rnic, config.max_send_size);
     if(two_sided)
-      recv_cq_ = create_cq(rnic,config.max_recv_size);
+      recv_cq_ = QPUtily::create_cq(rnic,config.max_recv_size);
     else
       recv_cq_ = cq_;
-    qp_ = create_qp(rnic, config, cq_, recv_cq_);
+    qp_ = QPUtily::create_qp(rnic, config, cq_, recv_cq_);
     if(qp_ != nullptr) attr.qpn = qp_->qp_num;
   }
 
-  IOStatus connect(const QPAttr &attr, const RCConfig &config) {
+  IOStatus connect(const QPAttr &attr, const QPConfig &config) {
     if(qp_status() == IBV_QPS_RTS) return SUCC;
-    if(!bring_qp_to_rcv(qp_, config, attr, port_id)) return ERR;
-    if(!bring_qp_to_send(qp_, config)) return ERR;
+    if(!bring_rc_to_rcv(qp_, config, attr, this->attr.port_id)) return ERR;
+    if(!bring_rc_to_send(qp_, config)) return ERR;
     return SUCC;
   }
 
@@ -111,8 +98,8 @@ class RCQP : public QPDummy {
     return ibv_poll_cq(cq_,1,&wc);
   }
 
-  IOStatus poll_completion(ibv_wc &wc,const Duration_t &timeout = no_timeout) {
-    return poll_completion_helper(cq_,wc,timeout);
+  IOStatus wait_completion(ibv_wc &wc,const Duration_t &timeout = no_timeout) {
+    return QPUtily::wait_completion(cq_,wc,timeout);
   }
 
  private:
@@ -122,60 +109,10 @@ class RCQP : public QPDummy {
 
  public:
   QPAttr    get_attr() const { return attr;}
-  const     int    lid;
-  const     int    port_id;
   Progress  progress_;
 
  public:
-  static ibv_cq * create_cq(const RNic &rnic,int size) {
-    return ibv_create_cq(rnic.ctx, size , nullptr, nullptr, 0);
-  }
-
-  static ibv_qp * create_qp(const RNic &rnic,const RCConfig &config,
-                            ibv_cq *send_cq,ibv_cq *recv_cq) {
-    struct ibv_qp_init_attr qp_init_attr = {};
-
-    qp_init_attr.send_cq = send_cq;
-    qp_init_attr.recv_cq = recv_cq;
-    qp_init_attr.qp_type = IBV_QPT_RC;
-
-    qp_init_attr.cap.max_send_wr = config.max_send_size;
-    qp_init_attr.cap.max_recv_wr = config.max_recv_size;
-    qp_init_attr.cap.max_send_sge = 1;
-    qp_init_attr.cap.max_recv_sge = 1;
-    qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
-
-    auto qp = ibv_create_qp(rnic.pd, &qp_init_attr);
-    if(qp != nullptr) {
-      auto res = bring_qp_to_init(qp, rnic, config);
-      if(res) return qp;
-    }
-    return nullptr;
-  }
-
-  static bool bring_qp_to_init(ibv_qp *qp,const RNic &rnic,const RCConfig &config) {
-
-    if(qp != nullptr) {
-      struct ibv_qp_attr qp_attr = {};
-      qp_attr.qp_state           = IBV_QPS_INIT;
-      qp_attr.pkey_index         = 0;
-      qp_attr.port_num           = rnic.id.port_id;
-      qp_attr.qp_access_flags    = config.access_flags;
-
-      int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
-      int rc = ibv_modify_qp(qp, &qp_attr,flags);
-      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify RC to INIT state, %s\n" <<  strerror(errno);
-
-      if(rc != 0) {
-        RDMA_LOG(WARNING) << " change state to init failed. ";
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }
-
-  static bool bring_qp_to_rcv(ibv_qp *qp,const RCConfig &config,const QPAttr &attr,int port_id) {
+  static bool bring_rc_to_rcv(ibv_qp *qp,const QPConfig &config,const QPAttr &attr,int port_id) {
     struct ibv_qp_attr qp_attr = {};
     qp_attr.qp_state              = IBV_QPS_RTR;
     qp_attr.path_mtu              = IBV_MTU_4096;
@@ -202,7 +139,7 @@ class RCQP : public QPDummy {
     return rc == 0;
   }
 
-  static bool bring_qp_to_send(ibv_qp *qp,const RCConfig &config) {
+  static bool bring_rc_to_send(ibv_qp *qp,const QPConfig &config) {
     int rc, flags;
     struct ibv_qp_attr qp_attr = {};
 

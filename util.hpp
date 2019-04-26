@@ -1,5 +1,8 @@
 #pragma once
 
+#include "rnic.hpp"
+#include "qp_config.hpp"
+
 namespace rdmaio {
 
 class Info {
@@ -80,27 +83,79 @@ inline uint64_t time_to_micro(const Duration_t &t) {
   return t.tv_sec * 1000000L + t.tv_usec;
 }
 
-inline IOStatus poll_completion_helper(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout)
-{
 
-  Duration_t start; gettimeofday(&start,nullptr);
-  Duration_t now;   gettimeofday(&now,nullptr);
-
-  int poll_result(0);
-  do {
-    asm volatile("" ::: "memory");
-    poll_result = ibv_poll_cq(cq, 1, &wc);
-    gettimeofday(&now,nullptr);
-  } while(poll_result == 0 && !(time_gap(now,start) < time_to_micro(timeout)));
-
-  if(poll_result == 0)
-    return TIMEOUT;
-  if(poll_result < 0 || wc.status != IBV_WC_SUCCESS) {
-    RDMA_LOG_IF(4,wc.status != IBV_WC_SUCCESS) <<
-        "poll till completion error: " << wc.status << " " << ibv_wc_status_str(wc.status);
-    return ERR;
+class QPUtily {
+ public:
+  static ibv_cq * create_cq(const RNic &rnic,int size) {
+    return ibv_create_cq(rnic.ctx, size , nullptr, nullptr, 0);
   }
-  return SUCC;
-}
+
+  static ibv_qp * create_qp(const RNic &rnic,const QPConfig &config,
+                            ibv_cq *send_cq,ibv_cq *recv_cq) {
+    struct ibv_qp_init_attr qp_init_attr = {};
+
+    qp_init_attr.send_cq = send_cq;
+    qp_init_attr.recv_cq = recv_cq;
+    qp_init_attr.qp_type = IBV_QPT_RC;
+
+    qp_init_attr.cap.max_send_wr = config.max_send_size;
+    qp_init_attr.cap.max_recv_wr = config.max_recv_size;
+    qp_init_attr.cap.max_send_sge = 1;
+    qp_init_attr.cap.max_recv_sge = 1;
+    qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
+
+    auto qp = ibv_create_qp(rnic.pd, &qp_init_attr);
+    if(qp != nullptr) {
+      auto res = bring_qp_to_init(qp, rnic, config);
+      if(res) return qp;
+    }
+    return nullptr;
+  }
+
+  static IOStatus wait_completion(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout)
+  {
+
+    Duration_t start; gettimeofday(&start,nullptr);
+    Duration_t now;   gettimeofday(&now,nullptr);
+
+    int poll_result(0);
+    do {
+      asm volatile("" ::: "memory");
+      poll_result = ibv_poll_cq(cq, 1, &wc);
+      gettimeofday(&now,nullptr);
+    } while(poll_result == 0 && !(time_gap(now,start) < time_to_micro(timeout)));
+
+    if(poll_result == 0)
+      return TIMEOUT;
+    if(poll_result < 0 || wc.status != IBV_WC_SUCCESS) {
+      RDMA_LOG_IF(4,wc.status != IBV_WC_SUCCESS) <<
+          "poll till completion error: " << wc.status << " " << ibv_wc_status_str(wc.status);
+      return ERR;
+    }
+    return SUCC;
+  }
+
+  static bool bring_qp_to_init(ibv_qp *qp,const RNic &rnic,const QPConfig &config) {
+
+    if(qp != nullptr) {
+      struct ibv_qp_attr qp_attr = {};
+      qp_attr.qp_state           = IBV_QPS_INIT;
+      qp_attr.pkey_index         = 0;
+      qp_attr.port_num           = rnic.id.port_id;
+      qp_attr.qp_access_flags    = config.access_flags;
+
+      int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+      int rc = ibv_modify_qp(qp, &qp_attr,flags);
+      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify RC to INIT state, %s\n" <<  strerror(errno);
+
+      if(rc != 0) {
+        RDMA_LOG(WARNING) << " change state to init failed. ";
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+}; // end class QPUtily
 
 } // end namespace rdmaio
