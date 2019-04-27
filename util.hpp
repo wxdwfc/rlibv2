@@ -90,13 +90,13 @@ class QPUtily {
     return ibv_create_cq(rnic.ctx, size , nullptr, nullptr, 0);
   }
 
-  static ibv_qp * create_qp(const RNic &rnic,const QPConfig &config,
+  static ibv_qp * create_qp(ibv_qp_type type,const RNic &rnic,const QPConfig &config,
                             ibv_cq *send_cq,ibv_cq *recv_cq) {
     struct ibv_qp_init_attr qp_init_attr = {};
 
     qp_init_attr.send_cq = send_cq;
     qp_init_attr.recv_cq = recv_cq;
-    qp_init_attr.qp_type = IBV_QPT_RC;
+    qp_init_attr.qp_type = type;
 
     qp_init_attr.cap.max_send_wr = config.max_send_size;
     qp_init_attr.cap.max_recv_wr = config.max_recv_size;
@@ -142,11 +142,20 @@ class QPUtily {
       qp_attr.qp_state           = IBV_QPS_INIT;
       qp_attr.pkey_index         = 0;
       qp_attr.port_num           = rnic.id.port_id;
-      qp_attr.qp_access_flags    = config.access_flags;
 
-      int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+      int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT;
+      if(qp->qp_type == IBV_QPT_RC) {
+        qp_attr.qp_access_flags    = config.access_flags;
+        flags |= IBV_QP_ACCESS_FLAGS;
+      }
+
+      if(qp->qp_type == IBV_QPT_UD) {
+        qp_attr.qkey = config.qkey;
+        flags |= IBV_QP_QKEY;
+      }
+
       int rc = ibv_modify_qp(qp, &qp_attr,flags);
-      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify RC to INIT state, %s\n" <<  strerror(errno);
+      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify QP to INIT state " <<  strerror(errno);
 
       if(rc != 0) {
         RDMA_LOG(WARNING) << " change state to init failed. ";

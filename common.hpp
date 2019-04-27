@@ -9,7 +9,6 @@
 #include <infiniband/verbs.h>
 
 #include "logging.hpp"
-#include "option.hpp"
 
 namespace rdmaio {
 

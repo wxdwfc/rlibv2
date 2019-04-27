@@ -43,6 +43,16 @@ class QPConfig {
     return *this;
   }
 
+  QPConfig &set_max_send(int num) {
+    max_send_size = num;
+    return *this;
+  }
+
+  QPConfig &set_max_recv(int num) {
+    max_recv_size = num;
+    return *this;
+  }
+
   QPConfig &add_access_write() {
     access_flags |= IBV_ACCESS_REMOTE_WRITE;
     return *this;
@@ -80,6 +90,8 @@ class QPConfig {
   int timeout            = 20;
   int max_send_size      = RC_MAX_SEND_SIZE;
   int max_recv_size      = RC_MAX_RECV_SIZE;
+
+  int qkey               = DEFAULT_QKEY;
 
   friend class RCQP;
   friend class UDQP;

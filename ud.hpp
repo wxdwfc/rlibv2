@@ -18,10 +18,12 @@ class UDQP : public QPDummy {
     recv_cq_ = QPUtily::create_cq(rnic,config.max_recv_size);
     if(recv_cq_ == nullptr)
       return;
-    qp_ = QPUtily::create_qp(rnic, config, cq_, recv_cq_);
-    if(!bring_ud_to_recv(qp_)) {
-      delete qp_;
-      qp_ = nullptr;
+    qp_ = QPUtily::create_qp(IBV_QPT_UD,rnic, config, cq_, recv_cq_);
+    if(qp_) {
+      if(!bring_ud_to_recv(qp_)) {
+        delete qp_;
+        qp_ = nullptr;
+      }
     }
   }
 

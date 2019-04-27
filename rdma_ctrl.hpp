@@ -16,6 +16,8 @@ class RdmaCtrl {
                                                   &mr_factory,std::placeholders::_1)));
     RDMA_ASSERT(register_handler(REQ_RC,std::bind(&QPFactory::get_rc_handler,
                                                   &qp_factory,std::placeholders::_1)));
+    RDMA_ASSERT(register_handler(REQ_UD,std::bind(&QPFactory::get_ud_handler,
+                                                  &qp_factory,std::placeholders::_1)));
 
     // start the listener thread
     pthread_attr_t attr;

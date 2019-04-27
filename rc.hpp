@@ -39,7 +39,7 @@ class RCQP : public QPDummy {
       recv_cq_ = QPUtily::create_cq(rnic,config.max_recv_size);
     else
       recv_cq_ = cq_;
-    qp_ = QPUtily::create_qp(rnic, config, cq_, recv_cq_);
+    qp_ = QPUtily::create_qp(IBV_QPT_RC,rnic, config, cq_, recv_cq_);
     if(qp_ != nullptr) attr.qpn = qp_->qp_num;
   }
 
