@@ -23,7 +23,8 @@ enum IOStatus {
   UNKNOWN      = 5,
   WRONG_ID     = 6,
   WRONG_REPLY  = 7,
-  NOT_CONNECT  = 8
+  NOT_CONNECT  = 8,
+  EJECT        = 9
 };
 
 /**

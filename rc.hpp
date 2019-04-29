@@ -5,23 +5,28 @@
 #include "memory.hpp"
 #include "util.hpp"
 
+#include <limits>
+
 namespace rdmaio {
 
 // Track the out-going and acknowledged reqs
 struct Progress {
-  uint64_t high_watermark = 0;
-  uint64_t low_watermark  = 0;
+  uint32_t high_watermark = 0;
+  uint32_t low_watermark  = 0;
 
-  void forward(int num) {
+  uint32_t forward(uint32_t num) {
     high_watermark += num;
+    return high_watermark;
   }
 
   void done(int num) {
-    low_watermark += num;
+    low_watermark = num;
   }
 
-  uint64_t pending_reqs() const {
-    return high_watermark - low_watermark;
+  uint32_t pending_reqs() const {
+    if(high_watermark >= low_watermark)
+      return high_watermark - low_watermark;
+    return std::numeric_limits<uint32_t>::max() - (low_watermark - high_watermark) + 1;
   }
 };
 
@@ -54,7 +59,7 @@ class RCQP : public QPDummy {
     ibv_wr_opcode op;
     int flags;
     uint32_t len   = 0;
-    uint64_t wr_id = 0;
+    uint32_t wr_id = 0;
   };
 
   struct ReqContent {
@@ -79,7 +84,7 @@ class RCQP : public QPDummy {
 
     struct ibv_send_wr sr, *bad_sr;
 
-    sr.wr_id        = meta.wr_id;
+    sr.wr_id        = (static_cast<uint64_t>(meta.wr_id) << 32) | progress_.forward(1);
     sr.opcode       = meta.op;
     sr.num_sge      = 1;
     sr.next         = nullptr;
@@ -94,8 +99,17 @@ class RCQP : public QPDummy {
     return rc == 0 ? SUCC : ERR;
   }
 
-  int poll_send_cq(ibv_wc &wc) {
-    return ibv_poll_cq(cq_,1,&wc);
+  int poll_one_comp(ibv_wc &wc) {
+    auto poll_result = ibv_poll_cq(cq_,1,&wc);
+    if(poll_result == 0)
+      return 0;
+    if(unlikely(wc.status != IBV_WC_SUCCESS)) {
+      return -1;
+    }
+    uint32_t user_wr    = wc.wr_id >> 32;
+    uint32_t water_mark = wc.wr_id & 0xffffffff;
+    progress_.done(water_mark);
+    return user_wr;
   }
 
   IOStatus wait_completion(ibv_wc &wc,const Duration_t &timeout = no_timeout) {
