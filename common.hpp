@@ -22,7 +22,8 @@ enum IOStatus {
   NOT_READY    = 4,
   UNKNOWN      = 5,
   WRONG_ID     = 6,
-  WRONG_REPLY  = 7
+  WRONG_REPLY  = 7,
+  NOT_CONNECT  = 8
 };
 
 /**
@@ -58,7 +59,6 @@ class QPDummy {
   bool valid() const {
     return qp_ != nullptr && cq_ != nullptr;
   }
- protected:
   struct ibv_qp  *qp_ = nullptr;
   struct ibv_cq *cq_  = nullptr;
   struct ibv_cq *recv_cq_ = nullptr;
@@ -71,7 +71,7 @@ typedef struct {
 } qp_address_t;
 
 struct QPAttr {
-  QPAttr(const qp_address_t &addr,int lid,int psn,int port_id,int qpn = 0):
+  QPAttr(const qp_address_t &addr,int lid,int psn,int port_id,int qpn = 0,int qkey = 0):
       addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
   }
   QPAttr() {}
@@ -80,6 +80,7 @@ struct QPAttr {
   int psn;
   int port_id;
   int qpn;
+  int qkey;
 };
 
 } // namespace rdmaio

@@ -53,14 +53,13 @@ class RNic {
   // members and private helper functions
  public:
   const DevIdx id;
-
- private:
-
   struct ibv_context *ctx = nullptr;
   struct ibv_pd      *pd  = nullptr;
-  const int           lid = -1;
-  const qp_address_t  addr;
 
+  const qp_address_t  addr;
+  const int           lid = -1;
+
+ private:
   struct ibv_context *open_device(DevIdx idx) {
 
     ibv_context *ret = nullptr;

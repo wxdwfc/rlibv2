@@ -112,8 +112,7 @@ class QPUtily {
     return nullptr;
   }
 
-  static IOStatus wait_completion(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout)
-  {
+  static IOStatus wait_completion(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout) {
 
     Duration_t start; gettimeofday(&start,nullptr);
     Duration_t now;   gettimeofday(&now,nullptr);
