@@ -8,8 +8,8 @@
 namespace rdmaio {
 
 struct DevIdx {
-  int dev_id;
-  int port_id;
+  uint dev_id;
+  uint port_id;
 
   friend std::ostream& operator<<(std::ostream& os, const DevIdx& i) {
     return os << "{" << i.dev_id << ":" << i.port_id << "}";

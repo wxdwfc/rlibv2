@@ -39,7 +39,7 @@ inline int convert_mtu(ibv_mtu type) {
   return mtu;
 }
 
-inline IOStatus send_request(const MacID &id, int req_type, const Buf_t &req,
+inline IOStatus send_request(const MacID &id, uint16_t req_type, const Buf_t &req,
                              Buf_t &reply,
                              const struct timeval &timeout) {
   IOStatus ret = SUCC;
