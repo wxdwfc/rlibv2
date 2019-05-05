@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "util.hpp"
+#include "memory.hpp"
 
 namespace rdmaio {
 
