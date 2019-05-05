@@ -64,8 +64,8 @@ class RemoteMemory {
   }
 
   ~RemoteMemory() {
-    if(mr != nullptr)
-      ibv_dereg_mr(mr);
+    //if(mr != nullptr)
+    //ibv_dereg_mr(mr);
   }
 
   struct Attr {
