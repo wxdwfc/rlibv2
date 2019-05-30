@@ -131,6 +131,15 @@ class RMemoryFactory {
     return ret;
   }
 
+  IOStatus fetch_local_mr(int mr_id,RemoteMemory::Attr &attr) {
+    auto mr = get_mr(mr_id);
+    if(mr == nullptr) {
+      return ERR;
+    }
+    *attr = mr->get_attr();
+    return SUCC;
+  }
+
   void deregister_mr(int mr_id) {
     std::lock_guard<std::mutex> lk(this->lock);
     auto it = registered_mrs.find(mr_id);
@@ -144,6 +153,7 @@ class RMemoryFactory {
     std::lock_guard<std::mutex> lk(this->lock);
     if(registered_mrs.find(mr_id) != registered_mrs.end())
       return registered_mrs[mr_id];
+    return nullptr;
   }
 
  private:
