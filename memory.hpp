@@ -136,7 +136,7 @@ class RMemoryFactory {
     if(mr == nullptr) {
       return ERR;
     }
-    *attr = mr->get_attr();
+    attr = mr->get_attr();
     return SUCC;
   }
 
