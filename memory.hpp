@@ -7,6 +7,8 @@
 
 #include <mutex>
 #include <map>
+#include <cerrno>
+#include <cstring>
 
 namespace rdmaio {
 
@@ -56,6 +58,10 @@ class RemoteMemory {
       : addr(addr),size(size) {
     if (rnic.ready()) {
       mr = ibv_reg_mr(rnic.pd,(void *)addr,size,flags.get_flags());
+      if(!valid()) {
+        RDMA_LOG(4) << "register mr failed at addr: (" << (void *)addr << ","
+                    << size << ")" << " with error: " <<  std::strerror(errno);
+      }
     }
   }
 
@@ -98,11 +104,13 @@ class RMemoryFactory {
   }
 
   IOStatus register_mr(int mr_id,
-                       const char *addr,int size,RNic &rnic,const MemoryFlags flags = MemoryFlags()) {
+                       const char *addr,uint64_t size,
+                       RNic &rnic,const MemoryFlags flags = MemoryFlags()) {
     std::lock_guard<std::mutex> lk(this->lock);
     if(registered_mrs.find(mr_id) != registered_mrs.end())
       return WRONG_ID;
     RDMA_ASSERT(rnic.ready());
+
     registered_mrs.insert(std::make_pair(mr_id, new RemoteMemory(addr,size,rnic,flags)));
     RDMA_ASSERT(rnic.ready());
 

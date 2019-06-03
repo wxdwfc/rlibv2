@@ -44,7 +44,7 @@ inline IOStatus send_request(const MacID &id, uint16_t req_type, const Buf_t &re
                              const struct timeval &timeout) {
   IOStatus ret = SUCC;
 
-  RequestHeader req_h = {.req_type = req_type, .req_payload = req.size() };
+  RequestHeader req_h = {.req_type = req_type, .req_payload = static_cast<uint16_t>(req.size()) };
 
   auto req_buf = Marshal::serialize_to_buf(req_h);
   req_buf.append(req);
