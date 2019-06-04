@@ -116,8 +116,8 @@ class QPUtily {
 
     Duration_t start; gettimeofday(&start,nullptr);
     Duration_t now;   gettimeofday(&now,nullptr);
-
     int poll_result(0);
+
     do {
       asm volatile("" ::: "memory");
       poll_result = ibv_poll_cq(cq, 1, &wc);
