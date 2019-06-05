@@ -35,6 +35,13 @@ class QPFactory {
     return true;
   }
 
+  RCQP *get_rc_qp(uint64_t id) {
+    std::lock_guard<std::mutex> lk(this->lock);
+    if(rc_qps.find(id) != rc_qps.end())
+      return rc_qps[id];
+    return nullptr;
+  }
+
   enum TYPE {
     RC = REQ_RC,
     UD = REQ_UD
