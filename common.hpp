@@ -24,7 +24,8 @@ enum IOStatus {
   WRONG_ID     = 6,
   WRONG_REPLY  = 7,
   NOT_CONNECT  = 8,
-  EJECT        = 9
+  EJECT        = 9,
+  REPEAT_CREATE = 10
 };
 
 /**
