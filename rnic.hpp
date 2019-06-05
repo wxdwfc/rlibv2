@@ -40,13 +40,15 @@ class RNic {
   ~RNic() {
     // pd must he deallocaed before ctx
     if(pd != nullptr) {
-      RDMA_VERIFY(INFO,ibv_dealloc_pd(pd) == 0)
-          << "failed to dealloc pd at device " << id
-          << "; w error " << strerror(errno);
+      ibv_dealloc_pd(pd);
+      //RDMA_VERIFY(INFO,ibv_dealloc_pd(pd) == 0)
+      //<< "failed to dealloc pd at device " << id
+      //  << "; w error " << strerror(errno);
     }
     if(ctx != nullptr) {
-      RDMA_VERIFY(INFO,ibv_close_device(ctx) == 0)
-          << "failed to close device " << id;
+      //RDMA_VERIFY(INFO,ibv_close_device(ctx) == 0)
+      //<< "failed to close device " << id;
+      ibv_close_device(ctx);
     }
 
   }
