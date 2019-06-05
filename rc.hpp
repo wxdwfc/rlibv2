@@ -48,6 +48,10 @@ class RCQP : public QPDummy {
     if(qp_ != nullptr) attr.qpn = qp_->qp_num;
   }
 
+  ~RCQP() {
+    QPUtily::destroy_qp(qp_);
+  }
+
   IOStatus connect(const QPAttr &attr, const QPConfig &config) {
     if(qp_status() == IBV_QPS_RTS) return SUCC;
     if(!bring_rc_to_rcv(qp_, config, attr, this->attr.port_id)) return ERR;

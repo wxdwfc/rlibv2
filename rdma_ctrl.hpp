@@ -117,6 +117,7 @@ class RdmaCtrl {
    END:
       close(csfd);
     } // end loop
+    close(listenfd);
   }
 };
 
