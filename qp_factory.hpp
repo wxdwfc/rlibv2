@@ -27,6 +27,15 @@ class QPFactory {
     return true;
   }
 
+  bool delete_rc_qp(uint64_t id) {
+    std::lock_guard<std::mutex> lk(this->lock);
+    auto it = rc_qps.find(id);
+    if(it != rc_qps.end()) {
+      rc_qps.erase(it);
+      delete it->second;
+    }
+  }
+
   bool register_ud_qp(uint64_t id,UDQP *qp) {
     std::lock_guard<std::mutex> lk(this->lock);
     if(ud_qps.find(id) != ud_qps.end())
