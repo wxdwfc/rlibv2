@@ -49,7 +49,7 @@ class RCQP : public QPDummy {
   }
 
   ~RCQP() {
-    QPUtily::destroy_qp(qp_);
+    // QPUtily::destroy_qp(qp_);
   }
 
   IOStatus connect(const QPAttr &attr, const QPConfig &config) {

@@ -114,7 +114,7 @@ class QPUtily {
 
   static bool destroy_qp(ibv_qp* qp) {
     int rc = ibv_destroy_qp(qp);
-    RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify QP to INIT state " <<  strerror(errno);
+    RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to destroy QP " <<  strerror(errno);
 
     return rc == 0;
   }

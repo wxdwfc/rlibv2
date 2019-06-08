@@ -44,7 +44,7 @@ class UDQP : public QPDummy {
   }
 
   ~UDQP() {
-    QPUtily::destroy_qp(qp_);
+    // QPUtily::destroy_qp(qp_);
   }
 
   /**
