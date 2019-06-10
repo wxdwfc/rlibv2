@@ -116,12 +116,11 @@ class RCQP : public QPDummy {
     return QPUtily::wait_completion(cq_,wc,timeout);
   }
 
- private:
+ public:
   RemoteMemory::Attr remote_mem_;
   RemoteMemory::Attr local_mem_;
   QPAttr    attr;
 
- public:
   QPAttr    get_attr() const { return attr;}
   Progress  progress_;
 
