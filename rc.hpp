@@ -104,6 +104,8 @@ class RCQP : public QPDummy {
     if(poll_result == 0)
       return 0;
     if(unlikely(wc.status != IBV_WC_SUCCESS)) {
+      RDMA_LOG(4) << "poll till completion error: " << wc.status
+                  << " " << ibv_wc_status_str(wc.status);
       return -1;
     }
     uint32_t user_wr    = wc.wr_id >> 32;
