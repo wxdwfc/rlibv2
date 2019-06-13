@@ -24,7 +24,8 @@ enum IOStatus {
   WRONG_ID     = 6,
   WRONG_REPLY  = 7,
   NOT_CONNECT  = 8,
-  EJECT        = 9
+  EJECT        = 9,
+  REPEAT_CREATE = 10
 };
 
 /**
@@ -72,16 +73,16 @@ typedef struct {
 } qp_address_t;
 
 struct QPAttr {
-  QPAttr(const qp_address_t &addr,int lid,int psn,int port_id,int qpn = 0,int qkey = 0):
+  QPAttr(const qp_address_t &addr,uint64_t lid,uint64_t psn,uint64_t port_id,uint64_t qpn = 0,uint64_t qkey = 0):
       addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
   }
   QPAttr() {}
   qp_address_t addr;
-  int lid;
-  int psn;
-  int port_id;
-  int qpn;
-  int qkey;
+  uint64_t lid;
+  uint64_t psn;
+  uint64_t port_id;
+  uint64_t qpn;
+  uint64_t qkey;
 };
 
 } // namespace rdmaio

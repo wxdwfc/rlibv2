@@ -53,8 +53,12 @@ class UDQP : public QPDummy {
   inline int  num_pendings() const { return pending_reqs_; }
   bool empty() const { return num_pendings() == 0;  }
 
+  inline bool need_poll(int threshold) const {
+    return num_pendings() >= threshold;
+  }
+
   inline bool need_poll() const {
-    return num_pendings() >= (max_send_size / 2);
+    return need_poll(max_send_size / 2);
   }
 
   inline void forward(int num) { pending_reqs_ += 1; }
