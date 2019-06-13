@@ -99,7 +99,6 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
 
       Duration_t s_timeout = timeout;
       int ready = select(socket + 1, &rfds, NULL, NULL, &s_timeout);
-      RDMA_ASSERT(ready != -1);
 
       if(ready == 0) { // no file descriptor found
         continue;

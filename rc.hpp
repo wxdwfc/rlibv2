@@ -72,6 +72,11 @@ class RCQP : public QPDummy {
     return send(meta,req,remote_mem_,local_mem_);
   }
 
+  IOStatus send(struct ibv_send_wr *send_sr,ibv_send_wr **bad_sr_addr) {
+    auto rc = ibv_post_send(qp_,send_sr,bad_sr_addr);
+    return rc == 0 ? SUCC : ERR;
+  }
+
   IOStatus send(const ReqMeta &meta,const ReqContent &req,
                 const RemoteMemory::Attr &remote_attr,
                 const RemoteMemory::Attr &local_attr) {
