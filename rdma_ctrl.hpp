@@ -28,7 +28,7 @@ class RdmaCtrl {
   ~RdmaCtrl() {
     running_ = false; // wait for the handler to join
     pthread_join(handler_tid_,NULL);
-    RDMA_LOG(INFO) << "rdma controler close: does not handle any future connections.";
+    // RDMA_LOG(INFO) << "rdma controler close: does not handle any future connections.";
   }
 
   typedef std::function<Buf_t (const Buf_t &req)> req_handler_f;
