@@ -30,7 +30,7 @@ struct Progress {
   }
 };
 
-class RCQP : public QPDummy {
+class alignas(128) RCQP : public QPDummy {
  public:
   RCQP(RNic &rnic,
        const RemoteMemory::Attr &remote_mem,

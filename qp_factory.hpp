@@ -12,6 +12,7 @@ class QPFactory {
   friend class RdmaCtrl;
  public:
   QPFactory() = default;
+
   ~QPFactory() {
     for(auto it = rc_qps.begin();it != rc_qps.end();++it)
       delete it->second;

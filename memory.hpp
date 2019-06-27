@@ -57,6 +57,7 @@ class RemoteMemory {
                const MemoryFlags &flags)
       : addr(addr),size(size) {
     if (rnic.ready()) {
+      RDMA_LOG(4) << "reg mem using rnic: " << rnic.ctx << "; using pd: "<< rnic.pd;
       mr = ibv_reg_mr(rnic.pd,(void *)addr,size,flags.get_flags());
       if(!valid()) {
         RDMA_LOG(4) << "register mr failed at addr: (" << (void *)addr << ","
