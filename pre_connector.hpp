@@ -104,14 +104,14 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
 
       Duration_t s_timeout = timeout;
       int ready = select(socket + 1, &rfds, NULL, NULL, &s_timeout);
-      RDMA_ASSERT(ready != -1);
 
       if(ready == 0) { // no file descriptor found
         continue;
       }
 
       if(ready < 0) { // error case
-        RDMA_ASSERT(false) << "select error " << strerror(errno);
+        //RDMA_ASSERT(false) << "select error " << strerror(errno);
+        return false;
       }
 
       if (FD_ISSET(socket, &rfds)) {
@@ -128,9 +128,8 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
 
     Duration_t timeout={1,0};
     auto ret = setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
-    RDMA_ASSERT(ret == 0);
-
-    recv(socket,buf,2,0);
+    if(ret == 0)
+      recv(socket,buf,2,0);
     close(socket);
   }
 
@@ -160,7 +159,7 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
 
   static std::string host_to_ip(const std::string &host) {
 
-    ipmap_t cache = local_ip_cache();
+    ipmap_t &cache = local_ip_cache();
     if(cache.find(host) != cache.end())
       return cache[host];
 

@@ -161,7 +161,8 @@ class QPUtily {
       }
 
       int rc = ibv_modify_qp(qp, &qp_attr,flags);
-      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify QP to INIT state " <<  strerror(errno);
+      RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify QP to INIT state " <<  strerror(errno)
+                                   << "; use port id: " << rnic.id.port_id;
 
       if(rc != 0) {
         RDMA_LOG(WARNING) << " change state to init failed. ";

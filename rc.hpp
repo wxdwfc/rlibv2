@@ -30,7 +30,7 @@ struct Progress {
   }
 };
 
-class RCQP : public QPDummy {
+class alignas(128) RCQP : public QPDummy {
  public:
   RCQP(RNic &rnic,
        const RemoteMemory::Attr &remote_mem,
@@ -74,6 +74,11 @@ class RCQP : public QPDummy {
 
   IOStatus send(const ReqMeta &meta,const ReqContent &req) {
     return send(meta,req,remote_mem_,local_mem_);
+  }
+
+  IOStatus send(struct ibv_send_wr *send_sr,ibv_send_wr **bad_sr_addr) {
+    auto rc = ibv_post_send(qp_,send_sr,bad_sr_addr);
+    return rc == 0 ? SUCC : ERR;
   }
 
   IOStatus send(const ReqMeta &meta,const ReqContent &req,
