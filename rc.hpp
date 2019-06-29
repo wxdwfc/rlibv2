@@ -112,11 +112,7 @@ class alignas(128) RCQP : public QPDummy {
     auto poll_result = ibv_poll_cq(cq_,1,&wc);
     if(poll_result == 0)
       return 0;
-    if(unlikely(wc.status != IBV_WC_SUCCESS)) {
-      RDMA_LOG(4) << "poll till completion error: " << wc.status
-                  << " " << ibv_wc_status_str(wc.status);
-      return -1;
-    }
+
     uint32_t user_wr    = wc.wr_id >> 32;
     uint32_t water_mark = wc.wr_id & 0xffffffff;
     progress_.done(water_mark);
