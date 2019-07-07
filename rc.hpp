@@ -81,6 +81,25 @@ class alignas(128) RCQP : public QPDummy {
     return rc == 0 ? SUCC : ERR;
   }
 
+  void prepare_wr(ibv_send_wr *sr, ibv_sge *sge, const ReqMeta &meta,
+                  const ReqContent &req, ibv_send_wr *next = nullptr) {
+    sge->addr = (uint64_t)(req.local_buf);
+    sge->length = meta.len;
+    sge->lkey = local_mem_.key;
+
+    sr->wr_id =
+        (static_cast<uint64_t>(meta.wr_id) << 32) | progress_.forward(1);
+    sr->opcode = meta.op;
+    sr->num_sge = 1;
+    sr->next = next;
+    sr->sg_list = sge;
+    sr->send_flags = meta.flags;
+    sr->imm_data = req.imm_data;
+
+    sr->wr.rdma.remote_addr = remote_mem_.buf + req.remote_addr;
+    sr->wr.rdma.rkey = remote_mem_.key;
+  }
+
   IOStatus send(const ReqMeta &meta,const ReqContent &req,
                 const RemoteMemory::Attr &remote_attr,
                 const RemoteMemory::Attr &local_attr) {
