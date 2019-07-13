@@ -11,10 +11,12 @@ namespace rdmaio {
 
 // Track the out-going and acknowledged reqs
 struct Progress {
-  uint32_t high_watermark = 0;
-  uint32_t low_watermark  = 0;
+  static const uint32_t num_progress_bits = sizeof(uint16_t) * 8;
 
-  uint32_t forward(uint32_t num) {
+  uint16_t high_watermark = 0;
+  uint16_t low_watermark  = 0;
+
+  uint16_t forward(uint16_t num) {
     high_watermark += num;
     return high_watermark;
   }
@@ -23,10 +25,10 @@ struct Progress {
     low_watermark = num;
   }
 
-  uint32_t pending_reqs() const {
+  uint16_t pending_reqs() const {
     if(high_watermark >= low_watermark)
       return high_watermark - low_watermark;
-    return std::numeric_limits<uint32_t>::max() - (low_watermark - high_watermark) + 1;
+    return std::numeric_limits<uint16_t>::max() - (low_watermark - high_watermark) + 1;
   }
 };
 
@@ -63,7 +65,7 @@ class alignas(128) RCQP : public QPDummy {
     ibv_wr_opcode op;
     int flags;
     uint32_t len   = 0;
-    uint32_t wr_id = 0;
+    uint64_t wr_id = 0;
   };
 
   struct ReqContent {
@@ -88,7 +90,7 @@ class alignas(128) RCQP : public QPDummy {
     sge->lkey = local_mem_.key;
 
     sr->wr_id =
-        (static_cast<uint64_t>(meta.wr_id) << 32) | progress_.forward(1);
+        (meta.wr_id << Progress::num_progress_bits) | progress_.forward(1);
     sr->opcode = meta.op;
     sr->num_sge = 1;
     sr->next = next;
@@ -112,7 +114,7 @@ class alignas(128) RCQP : public QPDummy {
 
     struct ibv_send_wr sr, *bad_sr;
 
-    sr.wr_id        = (static_cast<uint64_t>(meta.wr_id) << 32) | progress_.forward(1);
+    sr.wr_id        = (meta.wr_id << Progress::num_progress_bits) | progress_.forward(1);
     sr.opcode       = meta.op;
     sr.num_sge      = 1;
     sr.next         = nullptr;
@@ -127,13 +129,13 @@ class alignas(128) RCQP : public QPDummy {
     return rc == 0 ? SUCC : ERR;
   }
 
-  int poll_one_comp(ibv_wc &wc) {
+  uint64_t poll_one_comp(ibv_wc &wc) {
     auto poll_result = ibv_poll_cq(cq_,1,&wc);
     if(poll_result == 0)
       return 0;
 
-    uint32_t user_wr    = wc.wr_id >> 32;
-    uint32_t water_mark = wc.wr_id & 0xffffffff;
+    uint64_t user_wr    = wc.wr_id >> Progress::num_progress_bits;
+    uint64_t water_mark = wc.wr_id & 0xffff;
     progress_.done(water_mark);
     return user_wr;
   }
