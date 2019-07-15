@@ -35,6 +35,11 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     // port
     serv_addr.sin_port = htons(port);
 
+    // avoid TCP's TIME_WAIT state causing "ADDRESS ALREADY USE" Error
+    int addr_reuse = 1;
+    auto ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse, sizeof(addr_reuse));
+    RDMA_ASSERT(ret == 0);
+
     RDMA_ASSERT(bind(sockfd, (struct sockaddr *) &serv_addr,
                 sizeof(serv_addr)) == 0) << "ERROR on binding: " << strerror(errno);
     return sockfd;
