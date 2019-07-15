@@ -11,7 +11,7 @@ namespace rdmaio {
 
 // Track the out-going and acknowledged reqs
 struct Progress {
-  static const uint32_t num_progress_bits = sizeof(uint16_t) * 8;
+  static constexpr const uint32_t num_progress_bits = sizeof(uint16_t) * 8;
 
   uint16_t high_watermark = 0;
   uint16_t low_watermark  = 0;
