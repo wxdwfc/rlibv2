@@ -43,6 +43,10 @@ class UDQP : public QPDummy {
     }
   }
 
+  ~UDQP() {
+    // QPUtily::destroy_qp(qp_);
+  }
+
   /**
    * Some methods to help manage requests progress of this UD QP
    */

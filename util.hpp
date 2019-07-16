@@ -112,6 +112,13 @@ class QPUtily {
     return nullptr;
   }
 
+  static bool destroy_qp(ibv_qp* qp) {
+    int rc = ibv_destroy_qp(qp);
+    RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to destroy QP " <<  strerror(errno);
+
+    return rc == 0;
+  }
+
   static IOStatus wait_completion(ibv_cq *cq,ibv_wc &wc,const Duration_t &timeout = no_timeout) {
 
     Duration_t start; gettimeofday(&start,nullptr);
