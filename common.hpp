@@ -10,21 +10,23 @@
 
 #include "logging.hpp"
 
-namespace rdmaio {
+namespace rdmaio
+{
 
 // some constants definiations
 // connection status
-enum IOStatus {
-  SUCC         = 0,
-  TIMEOUT      = 1,
-  WRONG_ARG    = 2,
-  ERR          = 3,
-  NOT_READY    = 4,
-  UNKNOWN      = 5,
-  WRONG_ID     = 6,
-  WRONG_REPLY  = 7,
-  NOT_CONNECT  = 8,
-  EJECT        = 9,
+enum IOStatus
+{
+  SUCC = 0,
+  TIMEOUT = 1,
+  WRONG_ARG = 2,
+  ERR = 3,
+  NOT_READY = 4,
+  UNKNOWN = 5,
+  WRONG_ID = 6,
+  WRONG_REPLY = 7,
+  NOT_CONNECT = 8,
+  EJECT = 9,
   REPEAT_CREATE = 10
 };
 
@@ -35,15 +37,17 @@ enum IOStatus {
  * So only simple function request handling is supported.
  * For example, we use this to serve the QP and MR information to other nodes.
  */
-enum RESERVED_REQ_ID {
+enum RESERVED_REQ_ID
+{
   REQ_RC = 0,
   REQ_UD = 1,
   REQ_UC = 2,
   REQ_MR = 3,
-  FREE   = 4
+  FREE = 4
 };
 
-enum {
+enum
+{
   MAX_INLINE_SIZE = 64
 };
 
@@ -51,30 +55,35 @@ enum {
  * We use TCP/IP to identify the machine,
  * since RDMA requires an additional naming mechanism.
  */
-typedef std::tuple<std::string,int> MacID;
-inline MacID make_id(const std::string &ip,int port) {
-  return std::make_tuple(ip,port);
+typedef std::tuple<std::string, int> MacID;
+inline MacID make_id(const std::string &ip, int port)
+{
+  return std::make_tuple(ip, port);
 }
 
-class QPDummy {
- public:
-  bool valid() const {
+class QPDummy
+{
+public:
+  bool valid() const
+  {
     return qp_ != nullptr && cq_ != nullptr;
   }
-  struct ibv_qp  *qp_ = nullptr;
-  struct ibv_cq *cq_  = nullptr;
+  struct ibv_qp *qp_ = nullptr;
+  struct ibv_cq *cq_ = nullptr;
   struct ibv_cq *recv_cq_ = nullptr;
 }; // a placeholder for a dummy class
 
-typedef struct {
+typedef struct
+{
   uint64_t subnet_prefix;
   uint64_t interface_id;
   uint32_t local_id;
 } qp_address_t;
 
-struct QPAttr {
-  QPAttr(const qp_address_t &addr,uint64_t lid,uint64_t psn,uint64_t port_id,uint64_t qpn = 0,uint64_t qkey = 0):
-      addr(addr),lid(lid),qpn(qpn),psn(psn),port_id(port_id){
+struct QPAttr
+{
+  QPAttr(const qp_address_t &addr, uint64_t lid, uint64_t psn, uint64_t port_id, uint64_t qpn = 0, uint64_t qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
+  {
   }
   QPAttr() {}
   qp_address_t addr;
