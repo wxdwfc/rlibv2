@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 #include "rnic.hpp"
-#include "pre_connector.hpp"
+#include "simple_rpc.hpp"
 #include "util.hpp"
 
 #include <mutex>

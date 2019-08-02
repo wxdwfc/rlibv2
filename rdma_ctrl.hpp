@@ -12,6 +12,7 @@ namespace rdmaio
 class RdmaCtrl
 {
   // registered services
+  using req_handler_f = std::function<Buf_t(const Buf_t &req)>;
   std::map<int, req_handler_f> registered_handlers;
 
   bool running_ = false;
@@ -76,7 +77,6 @@ public:
     }
   }
 
-  using req_handler_f = std::function<Buf_t(const Buf_t &req)>;
   bool register_handler(int rid, req_handler_f f)
   {
     return check_with_insert(rid, registered_handlers, f);

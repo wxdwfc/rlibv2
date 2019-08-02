@@ -30,6 +30,14 @@ enum IOStatus
   REPEAT_CREATE = 10
 };
 
+using u64 = uint64_t;
+using u32 = uint32_t;
+using u16 = uint16_t;
+using i64 = int64_t;
+using u8 = uint8_t;
+using i8 = int8_t;
+using usize = unsigned int;
+
 /**
  * Programmer can register simple request handler to RdmaCtrl.
  * The request can be bound to an ID.
@@ -75,23 +83,23 @@ public:
 
 typedef struct
 {
-  uint64_t subnet_prefix;
-  uint64_t interface_id;
-  uint32_t local_id;
+  u64 subnet_prefix;
+  u64 interface_id;
+  u32 local_id;
 } qp_address_t;
 
 struct QPAttr
 {
-  QPAttr(const qp_address_t &addr, uint64_t lid, uint64_t psn, uint64_t port_id, uint64_t qpn = 0, uint64_t qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
+  QPAttr(const qp_address_t &addr, u64 lid, u64 psn, u64 port_id, u64 qpn = 0, u64 qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
   {
   }
   QPAttr() {}
   qp_address_t addr;
-  uint64_t lid;
-  uint64_t psn;
-  uint64_t port_id;
-  uint64_t qpn;
-  uint64_t qkey;
+  u64 lid;
+  u64 psn;
+  u64 port_id;
+  u64 qpn;
+  u64 qkey;
 };
 
 } // namespace rdmaio
