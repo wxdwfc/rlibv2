@@ -37,13 +37,13 @@ public:
     return *this;
   }
 
-  MemoryFlags& add_remote_write()
+  MemoryFlags &add_remote_write()
   {
     protection_flags |= IBV_ACCESS_REMOTE_WRITE;
     return *this;
   }
 
-  MemoryFlags& add_remote_read()
+  MemoryFlags &add_remote_read()
   {
     protection_flags |= IBV_ACCESS_REMOTE_READ;
     return *this;
@@ -114,6 +114,9 @@ class RMemoryFactory
 {
   friend class RdmaCtrl;
 
+  std::map<int, RemoteMemory *> registered_mrs;
+  std::mutex lock;
+
 public:
   RMemoryFactory() = default;
   ~RMemoryFactory()
@@ -123,9 +126,12 @@ public:
   }
 
   IOStatus register_mr(int mr_id,
+                       const char *addr, uint64_t size,
+                       RNic &rnic, const MemoryFlags flags = MemoryFlags())
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (registered_mrs.find(mr_id) != registered_mrs.end())
+    {
       return WRONG_ID;
     }
     RDMA_ASSERT(rnic.ready()) << "rnic is not ready";
@@ -167,10 +173,11 @@ public:
     return ret;
   }
 
-  IOStatus fetch_local_mr(int mr_id, RemoteMemory::Attr& attr)
+  IOStatus fetch_local_mr(int mr_id, RemoteMemory::Attr &attr)
   {
     auto mr = get_mr(mr_id);
-    if (mr == nullptr) {
+    if (mr == nullptr)
+    {
       return ERR;
     }
     attr = mr->get_attr();
@@ -194,10 +201,6 @@ public:
       return registered_mrs[mr_id];
     return nullptr;
   }
-
-private:
-  std::map<int, RemoteMemory *> registered_mrs;
-  std::mutex lock;
 
 private:
   // fetch the MR attribute from the registered mrs
@@ -227,8 +230,8 @@ private:
     if (!res)
       return Marshal::null_reply();
 
-    ReplyHeader reply = { .reply_status = SUCC,
-                          .reply_payload = sizeof(RemoteMemory::Attr) };
+    ReplyHeader reply = {.reply_status = SUCC,
+                         .reply_payload = sizeof(RemoteMemory::Attr)};
 
     auto mr = get_mr_attr(mr_id);
 
