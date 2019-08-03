@@ -2,6 +2,7 @@
 
 #include "memory.hpp"
 #include "qp_factory.hpp"
+#include "rpc_handler.hpp"
 
 #include <functional>
 #include <pthread.h>
@@ -11,10 +12,7 @@ namespace rdmaio
 
 class RdmaCtrl
 {
-  // registered services
-  using req_handler_f = std::function<Buf_t(const Buf_t &req)>;
-  std::map<int, req_handler_f> registered_handlers;
-
+  RPCFactory rpc;
   bool running_ = false;
   pthread_t handler_tid_;
   std::mutex lock;
@@ -77,21 +75,10 @@ public:
     }
   }
 
-  bool register_handler(int rid, req_handler_f f)
-  {
-    return check_with_insert(rid, registered_handlers, f);
-  }
-
-  template <typename T>
-  bool check_with_insert(int id, std::map<int, T> &m, const T &val)
+  bool register_handler(int rid, RPCFactory::req_handler_f f)
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (m.find(id) == m.end())
-    {
-      m.insert(std::make_pair(id, val));
-      return true;
-    }
-    return false;
+    rpc.register_handler(rid, f);
   }
 
   static void *listener_wrapper(void *context)
@@ -143,28 +130,11 @@ public:
         close(csfd);
         continue;
       }
+      auto reply = rpc.handle_one(csfd);
 
-      {
-        Buf_t buf = Marshal::get_buffer(4096);
-        auto n = recv(csfd, (char *)(buf.data()), 4096, 0);
-        if (n < sizeof(RequestHeader))
-        {
-          goto END;
-        }
-
-        RequestHeader header = Marshal::deserialize<RequestHeader>(buf);
-
-        if (registered_handlers.find(header.req_type) ==
-            registered_handlers.end())
-          goto END;
-        auto reply = registered_handlers[header.req_type](
-            Marshal::forward(buf, sizeof(RequestHeader), header.req_payload));
-
-        PreConnector::send_to(csfd, (char *)(reply.data()), reply.size());
-        PreConnector::wait_close(
-            csfd); // wait for the client to close the connection
-      }
-    END:
+      PreConnector::send_to(csfd, (char *)(reply.data()), reply.size());
+      PreConnector::wait_close(
+          csfd); // wait for the client to close the connection
       close(csfd);
     } // end loop
     close(listenfd);
