@@ -32,6 +32,11 @@ public:
     return b.substr(pos, size);
   }
 
+    static Buf_t direct_forward(const Buf_t &b,int size)
+  {
+    return forward(b,size,b.size() - size);
+  }
+
   template <typename T>
   static void *serialize_to_buf(const T &t, const void *buf)
   {

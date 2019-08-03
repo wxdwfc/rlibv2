@@ -43,27 +43,35 @@ public:
         }
         ReqHeader header = Marshal::deserialize<ReqHeader>(buf);
         Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader_));
-        ReplyHeader_ *rheader = (ReplyHeader_ *)(buf.data()); // unsafe code
 
-        RDMA_ASSERT(header.total_reqs <= ReqHeader::max_batch_sz);
-        buf = Marshal::forward(buf, 0, sizeof(ReqHeader));
+        RDMA_ASSERT(header.total_reqs <= ReqHeader::max_batch_sz)
+            << "get total reqs: " << (int)header.total_reqs;
 
+        buf = Marshal::direct_forward(buf,sizeof(ReqHeader));
+        
+        std::vector<usize> reply_sz;
         for (uint i = 0; i < header.total_reqs; ++i)
         {
             const auto &reqdesc = header.elems[i];
             try
             {
                 auto temp = registered_handlers[reqdesc.type](buf);
-                rheader->reply_sizes[i] = temp.size();
-                rheader->total_replies += 1;
+                reply_sz.push_back(temp.size());
                 reply.append(temp);
-                buf = Marshal::forward(buf, 0, reqdesc.payload);
+                buf = Marshal::direct_forward(buf, reqdesc.payload);
             }
             catch (std::exception &e)
             {
                 // pas
             }
         }
+
+        ReplyHeader_ *rheader = (ReplyHeader_ *)(reply.data()); // unsafe code
+        for(uint i = 0;i < reply_sz.size();++i) {
+            rheader->reply_sizes[i] = reply_sz[i];            
+        }
+        rheader->total_replies = reply_sz.size();
+
         return reply;
     }
     friend class RdmaCtrl;

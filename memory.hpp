@@ -60,7 +60,7 @@ private:
 class RemoteMemory
 {
 public:
-  RemoteMemory(const char *addr, uint64_t size,
+  RemoteMemory(const char *addr, u64 size,
                const RNic &rnic,
                const MemoryFlags &flags)
       : addr(addr), size(size)
@@ -102,7 +102,7 @@ public:
 
 private:
   const char *addr = nullptr;
-  uint64_t size;
+  u64 size;
   ibv_mr *mr = nullptr; // mr in the driver
 };                      // class remote memory
 
@@ -126,7 +126,7 @@ public:
   }
 
   IOStatus register_mr(int mr_id,
-                       const char *addr, uint64_t size,
+                       const char *addr, u64 size,
                        RNic &rnic, const MemoryFlags flags = MemoryFlags())
   {
     std::lock_guard<std::mutex> lk(this->lock);
@@ -204,7 +204,7 @@ public:
 
 private:
   // fetch the MR attribute from the registered mrs
-  Buf_t get_mr_attr(uint64_t id)
+  Buf_t get_mr_attr(u64 id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (registered_mrs.find(id) == registered_mrs.end())
@@ -221,11 +221,10 @@ private:
    */
   Buf_t get_mr_handler(const Buf_t &req)
   {
-
-    if (req.size() < sizeof(uint64_t))
+    if (req.size() < sizeof(u64))
       return Marshal::null_reply();
 
-    uint64_t mr_id;
+    u64 mr_id;
     bool res = Marshal::deserialize(req, mr_id);
     if (!res)
       return Marshal::null_reply();
@@ -240,10 +239,10 @@ private:
       reply.reply_status = NOT_READY;
       reply.reply_payload = 0;
     }
-
     // finally generate the reply
     auto reply_buf = Marshal::serialize_to_buf(reply);
     reply_buf.append(mr);
+
     return reply_buf;
   }
 };

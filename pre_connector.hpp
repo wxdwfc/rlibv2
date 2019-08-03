@@ -12,19 +12,22 @@
 
 #include <map>
 
-namespace rdmaio {
+namespace rdmaio
+{
 
 typedef struct timeval Duration_t;
-constexpr Duration_t default_timeout = {0,8000};
-constexpr Duration_t no_timeout      = {0,0};  // it means forever
+constexpr Duration_t default_timeout = {0, 8000};
+constexpr Duration_t no_timeout = {0, 0}; // it means forever
 
-class PreConnector { // helper class used to exchange QP information using TCP/IP
- public:
-  static int get_listen_socket(const std::string &addr,int port) {
+class PreConnector
+{ // helper class used to exchange QP information using TCP/IP
+public:
+  static int get_listen_socket(const std::string &addr, int port)
+  {
 
     struct sockaddr_in serv_addr;
-    auto sockfd =  socket(AF_INET, SOCK_STREAM, 0);
-    RDMA_ASSERT(sockfd >= 0) <<  "ERROR opening listen socket: " << strerror(errno);
+    auto sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    RDMA_ASSERT(sockfd >= 0) << "ERROR opening listen socket: " << strerror(errno);
 
     /* setup the host_addr structure for use in bind call */
     // server byte order
@@ -39,13 +42,14 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     int addr_reuse = 1;
     auto ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse, sizeof(addr_reuse));
     RDMA_ASSERT(ret == 0);
-
-    RDMA_ASSERT(bind(sockfd, (struct sockaddr *) &serv_addr,
-                sizeof(serv_addr)) == 0) << "ERROR on binding: " << strerror(errno);
+    RDMA_ASSERT(bind(sockfd, (struct sockaddr *)&serv_addr,
+                     sizeof(serv_addr)) == 0)
+        << "ERROR on binding: " << strerror(errno);
     return sockfd;
   }
 
-  static int get_send_socket(const std::string &addr,int port,Duration_t timeout = default_timeout) {
+  static int get_send_socket(const std::string &addr, int port, Duration_t timeout = default_timeout)
+  {
     int sockfd;
     struct sockaddr_in serv_addr;
 
@@ -56,36 +60,42 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     serv_addr.sin_port = htons(port);
 
     auto ip = host_to_ip(addr);
-    if(ip == "") {
+    if (ip == "")
+    {
       close(sockfd);
       return -1;
     }
 
     serv_addr.sin_addr.s_addr = inet_addr(ip.c_str());
 
-    if(connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == -1) {
-      if (errno == EINPROGRESS) {
+    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
+    {
+      if (errno == EINPROGRESS)
+      {
         goto PROGRESS;
       }
       close(sockfd);
       return -1;
     }
- PROGRESS:
+  PROGRESS:
     // check return status
     fd_set fdset;
     FD_ZERO(&fdset);
     FD_SET(sockfd, &fdset);
 
-    if(select(sockfd + 1, NULL, &fdset, NULL, &timeout) == 1)
+    if (select(sockfd + 1, NULL, &fdset, NULL, &timeout) == 1)
     {
       int so_error;
       socklen_t len = sizeof so_error;
 
       getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
 
-      if (so_error == 0) {
+      if (so_error == 0)
+      {
         // success
-      } else {
+      }
+      else
+      {
         close(sockfd);
         return -1;
       }
@@ -94,9 +104,11 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     return sockfd;
   }
 
-  static bool wait_recv(int socket, const Duration_t &timeout) {
+  static bool wait_recv(int socket, const Duration_t &timeout)
+  {
 
-    while(true) {
+    while (true)
+    {
 
       fd_set rfds;
       FD_ZERO(&rfds);
@@ -105,45 +117,52 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
       Duration_t s_timeout = timeout;
       int ready = select(socket + 1, &rfds, NULL, NULL, &s_timeout);
 
-      if(ready == 0) { // no file descriptor found
+      if (ready == 0)
+      { // no file descriptor found
         continue;
       }
 
-      if(ready < 0) { // error case
+      if (ready < 0)
+      { // error case
         //RDMA_ASSERT(false) << "select error " << strerror(errno);
         return false;
       }
 
-      if (FD_ISSET(socket, &rfds)) {
+      if (FD_ISSET(socket, &rfds))
+      {
         break; // ready
       }
     }
     return true;
   }
 
-  static void wait_close(int socket) {
+  static void wait_close(int socket)
+  {
 
     shutdown(socket, SHUT_WR);
     char buf[2];
 
-    Duration_t timeout={1,0};
-    auto ret = setsockopt(socket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeout,sizeof(timeout));
-    if(ret == 0)
-      recv(socket,buf,2,0);
+    Duration_t timeout = {1, 0};
+    auto ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
+    if (ret == 0)
+      recv(socket, buf, 2, 0);
     close(socket);
   }
 
-  static int send_to(int fd, char *usrbuf, size_t n) {
+  static int send_to(int fd, char *usrbuf, size_t n)
+  {
     size_t nleft = n;
     ssize_t nwritten;
     char *bufp = usrbuf;
 
-    while (nleft > 0) {
-      if ((nwritten = write(fd, bufp, nleft)) <= 0) {
-        if (errno == EINTR)  /* Interrupted by sig handler return */
-          nwritten = 0;    /* and call write() again */
+    while (nleft > 0)
+    {
+      if ((nwritten = write(fd, bufp, nleft)) <= 0)
+      {
+        if (errno == EINTR) /* Interrupted by sig handler return */
+          nwritten = 0;     /* and call write() again */
         else
-          return -1;       /* errno set by write() */
+          return -1; /* errno set by write() */
       }
       nleft -= nwritten;
       bufp += nwritten;
@@ -151,16 +170,18 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     return n;
   }
 
-  typedef std::map<std::string,std::string> ipmap_t;
-  static ipmap_t &local_ip_cache() {
+  typedef std::map<std::string, std::string> ipmap_t;
+  static ipmap_t &local_ip_cache()
+  {
     static __thread ipmap_t cache;
     return cache;
   }
 
-  static std::string host_to_ip(const std::string &host) {
+  static std::string host_to_ip(const std::string &host)
+  {
 
     ipmap_t &cache = local_ip_cache();
-    if(cache.find(host) != cache.end())
+    if (cache.find(host) != cache.end())
       return cache[host];
 
     std::string res = "";
@@ -170,19 +191,22 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     hints.ai_family = AF_INET; // AF_INET means IPv4 only addresses
 
     int result = getaddrinfo(host.c_str(), NULL, &hints, &infoptr);
-    if (result) {
-      fprintf(stderr, "getaddrinfo: %s at %s\n", gai_strerror(result),host.c_str());
+    if (result)
+    {
+      fprintf(stderr, "getaddrinfo: %s at %s\n", gai_strerror(result), host.c_str());
       return "";
     }
-    char ip[64]; memset(ip,0,sizeof(ip));
+    char ip[64];
+    memset(ip, 0, sizeof(ip));
 
-    for(struct addrinfo *p = infoptr; p != NULL; p = p->ai_next) {
+    for (struct addrinfo *p = infoptr; p != NULL; p = p->ai_next)
+    {
       getnameinfo(p->ai_addr, p->ai_addrlen, ip, sizeof(ip), NULL, 0, NI_NUMERICHOST);
     }
 
     res = std::string(ip);
-    if(res != "")
-      cache.insert(std::make_pair(host,res));
+    if (res != "")
+      cache.insert(std::make_pair(host, res));
     return res;
   }
 };

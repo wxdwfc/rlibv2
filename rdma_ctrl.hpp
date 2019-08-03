@@ -78,7 +78,7 @@ public:
   bool register_handler(int rid, RPCFactory::req_handler_f f)
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    rpc.register_handler(rid, f);
+    return rpc.register_handler(rid, f);
   }
 
   static void *listener_wrapper(void *context)

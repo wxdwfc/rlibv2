@@ -17,7 +17,7 @@ struct ReqHeader
         u16 type;
         u16 payload;
     };
-    static constexpr const usize max_batch_sz = 4;
+    static const u8 max_batch_sz = 4;
     elem_t elems[max_batch_sz];
     u8 total_reqs = 0;
 };
@@ -65,7 +65,7 @@ class SimpleRPC
 
 public:
     SimpleRPC(const std::string &addr, int port)
-        : socket(PreConnector::get_listen_socket(addr, port))
+        : socket(PreConnector::get_send_socket(addr, port))
     {
     }
 
@@ -100,19 +100,28 @@ public:
          */
         // 1. prepare the send payloads
         auto send_buf = Marshal::get_buffer(sizeof(ReqHeader));
-        ReqHeader *header = (ReqHeader *)(send_buf.data()); // unsafe code
 
+        for (auto &req : reqs)
+        {
+            send_buf.append(req.first.second);
+        }
+
+        ReqHeader *header = (ReqHeader *)(send_buf.data()); // unsafe code
         for (uint i = 0; i < reqs.size(); ++i)
         {
             auto &req = reqs[i].first;
             header->elems[i].type = req.first;
             header->elems[i].payload = req.second.size();
-            send_buf.append(req.second);
         }
-        auto n = send(socket, (char *)(send_buf.data()), send_buf.size(), 0);
-        if (n != reqs.size())
-            return ERR;
 
+        header->total_reqs = static_cast<u8>(reqs.size());
+        asm volatile("" ::
+                         : "memory");
+
+        auto n = send(socket, (char *)(send_buf.data()), send_buf.size(), 0);
+        if (n != send_buf.size()) {
+            return ERR;
+        }
         // wait for recvs
         if (!PreConnector::wait_recv(socket, timeout))
         {
@@ -122,21 +131,22 @@ public:
         // 2. the following handles replies
         Buf_t reply = Marshal::get_buffer(expected_reply_sz + sizeof(ReplyHeader_));
         n = recv(socket, (char *)(reply.data()), reply.size(), MSG_WAITALL);
-        if (n < reply.size())
+
+        if (n < reply.size()) {
             return WRONG_ARG;
+        }
 
         // now we parse the replies to fill the reqs
         const auto &reply_h = *(reinterpret_cast<const ReplyHeader_ *>(reply.data()));
         if (reply_h.total_replies < reqs.size())
             return WRONG_ARG;
         usize parsed_replies = 0;
+
         for (uint i = 0; i < reply_h.total_replies; ++i)
         {
             // sanity check replies size
             if (parsed_replies + reply_h.reply_sizes[i] >
-                reply.size() - sizeof(ReplyHeader_))
-            {
-                RDMA_LOG(4) << "Wrong reply size.";
+                reply.size() - sizeof(ReplyHeader_)) {
                 return WRONG_ARG;
             }
             // append the corresponding reply to the buffer
