@@ -1,8 +1,8 @@
 #pragma once
 
 #include "common.hpp"
-#include "pre_connector.hpp"
 #include "rnic.hpp"
+#include "simple_rpc.hpp"
 #include "util.hpp"
 
 #include <cerrno>
@@ -10,14 +10,15 @@
 #include <map>
 #include <mutex>
 
-namespace rdmaio {
+namespace rdmaio
+{
 
 class MemoryFlags
 {
 public:
   MemoryFlags() = default;
 
-  MemoryFlags& set_flags(int flags)
+  MemoryFlags &set_flags(int flags)
   {
     protection_flags = flags;
     return *this;
@@ -25,9 +26,12 @@ public:
 
   int get_flags() const { return protection_flags; }
 
-  MemoryFlags& clear_flags() { return set_flags(0); }
+  MemoryFlags &clear_flags()
+  {
+    return set_flags(0);
+  }
 
-  MemoryFlags& add_local_write()
+  MemoryFlags &add_local_write()
   {
     protection_flags |= IBV_ACCESS_LOCAL_WRITE;
     return *this;
@@ -56,31 +60,32 @@ private:
 class RemoteMemory
 {
 public:
-  RemoteMemory(const char* addr,
-               uint64_t size,
-               const RNic& rnic,
-               const MemoryFlags& flags)
-    : addr(addr)
-    , size(size)
+  RemoteMemory(const char *addr, uint64_t size,
+               const RNic &rnic,
+               const MemoryFlags &flags)
+      : addr(addr), size(size)
   {
-    if (rnic.ready()) {
-
-      mr = ibv_reg_mr(rnic.pd, (void*)addr, size, flags.get_flags());
-
-      if (!valid()) {
-        RDMA_LOG(4) << "register mr failed at addr: (" << (void*)addr << ","
+    if (rnic.ready())
+    {
+      mr = ibv_reg_mr(rnic.pd, (void *)addr, size, flags.get_flags());
+      if (!valid())
+      {
+        RDMA_LOG(4) << "register mr failed at addr: (" << (void *)addr << ","
                     << size << ")"
                     << " with error: " << std::strerror(errno);
       }
     }
   }
 
-  bool valid() const { return (mr != nullptr); }
+  bool valid() const
+  {
+    return (mr != nullptr);
+  }
 
   ~RemoteMemory()
   {
-    // if(mr != nullptr)
-    // ibv_dereg_mr(mr);
+    //if(mr != nullptr)
+    //ibv_dereg_mr(mr);
   }
 
   struct Attr
@@ -92,13 +97,13 @@ public:
   Attr get_attr() const
   {
     auto key = valid() ? mr->rkey : 0;
-    return { .buf = (uintptr_t)(addr), .key = key };
+    return {.buf = (uintptr_t)(addr), .key = key};
   }
 
 private:
-  const char* addr = nullptr;
+  const char *addr = nullptr;
   uint64_t size;
-  ibv_mr* mr = nullptr; // mr in the driver
+  ibv_mr *mr = nullptr; // mr in the driver
 };                      // class remote memory
 
 /**
@@ -118,20 +123,15 @@ public:
   }
 
   IOStatus register_mr(int mr_id,
-                       const char* addr,
-                       uint64_t size,
-                       RNic& rnic,
-                       const MemoryFlags flags = MemoryFlags())
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (registered_mrs.find(mr_id) != registered_mrs.end()) {
-      RDMA_LOG(4) << "memory already registered.";
+    if (registered_mrs.find(mr_id) != registered_mrs.end())
       return WRONG_ID;
     }
     RDMA_ASSERT(rnic.ready()) << "rnic is not ready";
 
-    registered_mrs.insert(
-      std::make_pair(mr_id, new RemoteMemory(addr, size, rnic, flags)));
+    registered_mrs.insert(std::make_pair(mr_id, new RemoteMemory(addr, size, rnic, flags)));
+    RDMA_ASSERT(rnic.ready());
 
     if (registered_mrs[mr_id]->valid())
       return SUCC;
@@ -140,27 +140,28 @@ public:
     return ERR;
   }
 
-  static IOStatus fetch_remote_mr(int mr_id,
-                                  const MacID& id,
-                                  RemoteMemory::Attr& attr,
-                                  const Duration_t& timeout = default_timeout)
+  static IOStatus fetch_remote_mr(int mr_id, const MacID &id,
+                                  RemoteMemory::Attr &attr,
+                                  const Duration_t &timeout = default_timeout)
   {
-    Buf_t reply =
-      Marshal::get_buffer(sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr));
-    auto ret =
-      send_request(id,
-                   REQ_MR,
-                   Marshal::serialize_to_buf(static_cast<uint64_t>(mr_id)),
-                   reply,
-                   timeout);
-    if (ret == SUCC) {
+    SimpleRPC sr(std::get<0>(id), std::get<1>(id));
+    if (!sr.valid())
+      return ERR;
+    Buf_t reply;
+    sr.emplace((u8)REQ_MR, Marshal::serialize_to_buf(static_cast<u64>(mr_id)), &reply);
+    auto ret = sr.execute(sizeof(ReplyHeader) + sizeof(RemoteMemory::Attr), timeout);
+
+    if (ret == SUCC)
+    {
       // further we check the reply header
       ReplyHeader header = Marshal::deserialize<ReplyHeader>(reply);
-      if (header.reply_status == SUCC) {
-        reply = Marshal::forward(
-          reply, sizeof(ReplyHeader), reply.size() - sizeof(ReplyHeader));
+      if (header.reply_status == SUCC)
+      {
+        reply = Marshal::forward(reply, sizeof(ReplyHeader),
+                                 reply.size() - sizeof(ReplyHeader));
         attr = Marshal::deserialize<RemoteMemory::Attr>(reply);
-      } else
+      }
+      else
         ret = static_cast<IOStatus>(header.reply_status);
     }
     return ret;
@@ -186,7 +187,7 @@ public:
     registered_mrs.erase(it);
   }
 
-  RemoteMemory* get_mr(int mr_id)
+  RemoteMemory *get_mr(int mr_id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (registered_mrs.find(mr_id) != registered_mrs.end())
@@ -195,7 +196,7 @@ public:
   }
 
 private:
-  std::map<int, RemoteMemory*> registered_mrs;
+  std::map<int, RemoteMemory *> registered_mrs;
   std::mutex lock;
 
 private:
@@ -203,7 +204,8 @@ private:
   Buf_t get_mr_attr(uint64_t id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (registered_mrs.find(id) == registered_mrs.end()) {
+    if (registered_mrs.find(id) == registered_mrs.end())
+    {
       return "";
     }
     auto attr = registered_mrs[id]->get_attr();
@@ -214,10 +216,10 @@ private:
    * @Input = req:
    * - the attribute of MR the requester wants to fetch
    */
-  Buf_t get_mr_handler(const Buf_t& req)
+  Buf_t get_mr_handler(const Buf_t &req)
   {
 
-    if (req.size() != sizeof(uint64_t))
+    if (req.size() < sizeof(uint64_t))
       return Marshal::null_reply();
 
     uint64_t mr_id;
@@ -230,7 +232,8 @@ private:
 
     auto mr = get_mr_attr(mr_id);
 
-    if (mr.size() == 0) {
+    if (mr.size() == 0)
+    {
       reply.reply_status = NOT_READY;
       reply.reply_payload = 0;
     }
