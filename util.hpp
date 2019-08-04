@@ -44,6 +44,11 @@ inline int convert_mtu(ibv_mtu type)
   return mtu;
 }
 
+inline Duration_t us_to_duration(const double &us)
+{
+  return {0, static_cast<__suseconds_t>(us)};
+}
+
 // return t1 - t0
 inline u64 time_gap(const Duration_t &t1, const Duration_t &t0)
 {

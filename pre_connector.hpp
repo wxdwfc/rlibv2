@@ -15,7 +15,7 @@
 namespace rdmaio
 {
 
-typedef struct timeval Duration_t;
+using Duration_t = timeval;
 constexpr Duration_t default_timeout = {0, 8000};
 constexpr Duration_t no_timeout = {0, 0}; // it means forever
 
