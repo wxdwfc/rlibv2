@@ -5,8 +5,7 @@
 
 #include <map>
 
-namespace rdmaio
-{
+namespace rdmaio {
 
 class RdmaCtrl;
 class QPFactory
@@ -24,7 +23,7 @@ public:
       delete it->second;
   }
 
-  bool register_rc_qp(uint64_t id, RCQP *qp)
+  bool register_rc_qp(u64 id, RCQP* qp)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (rc_qps.find(id) != rc_qps.end())
@@ -33,18 +32,17 @@ public:
     return true;
   }
 
-  bool delete_rc_qp(uint64_t id)
+  bool delete_rc_qp(u64 id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     auto it = rc_qps.find(id);
-    if (it != rc_qps.end())
-    {
+    if (it != rc_qps.end()) {
       rc_qps.erase(it);
       delete it->second;
     }
   }
 
-  bool register_ud_qp(uint64_t id, UDQP *qp)
+  bool register_ud_qp(u64 id, UDQP* qp)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (ud_qps.find(id) != ud_qps.end())
@@ -53,7 +51,7 @@ public:
     return true;
   }
 
-  RCQP *get_rc_qp(uint64_t id)
+  RCQP* get_rc_qp(u64 id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
     if (rc_qps.find(id) != rc_qps.end())
@@ -67,56 +65,57 @@ public:
     UD = REQ_UD
   };
 
-  static IOStatus fetch_qp_addr(TYPE type, uint64_t qp_id, const MacID &id,
-                                QPAttr &attr,
-                                const Duration_t &timeout = default_timeout)
+  static IOStatus fetch_qp_addr(TYPE type,
+                                u64 qp_id,
+                                const MacID& id,
+                                QPAttr& attr,
+                                const Duration_t& timeout = default_timeout)
   {
     SimpleRPC sr(std::get<0>(id), std::get<1>(id));
     if (!sr.valid())
       return ERR;
     Buf_t reply;
-    sr.emplace((u8)type, Marshal::serialize_to_buf(static_cast<u64>(qp_id)), &reply);
+    sr.emplace(
+      (u8)type, Marshal::serialize_to_buf(static_cast<u64>(qp_id)), &reply);
     auto ret = sr.execute(sizeof(ReplyHeader) + sizeof(QPAttr), timeout);
 
-    if (ret == SUCC)
-    {
+    if (ret == SUCC) {
       // further we check the reply header
       ReplyHeader header = Marshal::deserialize<ReplyHeader>(reply);
-      if (header.reply_status == SUCC)
-      {
-        reply = Marshal::forward(reply, sizeof(ReplyHeader), reply.size() - sizeof(ReplyHeader));
+      if (header.reply_status == SUCC) {
+        reply = Marshal::forward(
+          reply, sizeof(ReplyHeader), reply.size() - sizeof(ReplyHeader));
         attr = Marshal::deserialize<QPAttr>(reply);
-      }
-      else
+      } else {
+
         ret = static_cast<IOStatus>(header.reply_status);
+      }
     }
     return ret;
   }
 
 private:
-  std::map<uint64_t, RCQP *> rc_qps;
-  std::map<uint64_t, UDQP *> ud_qps;
+  std::map<u64, RCQP*> rc_qps;
+  std::map<u64, UDQP*> ud_qps;
 
   // TODO: add UC QPs
 
   std::mutex lock;
 
-  Buf_t get_rc_addr(uint64_t id)
+  Buf_t get_rc_addr(u64 id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (rc_qps.find(id) == rc_qps.end())
-    {
+    if (rc_qps.find(id) == rc_qps.end()) {
       return "";
     }
     auto attr = rc_qps[id]->get_attr();
     return Marshal::serialize_to_buf(attr);
   }
 
-  Buf_t get_ud_addr(uint64_t id)
+  Buf_t get_ud_addr(u64 id)
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (ud_qps.find(id) == ud_qps.end())
-    {
+    if (ud_qps.find(id) == ud_qps.end()) {
       return "";
     }
     auto attr = ud_qps[id]->get_attr();
@@ -127,23 +126,23 @@ private:
    * @Input = req:
    * - the address of QP the requester wants to fetch
    */
-  Buf_t get_rc_handler(const Buf_t &req)
+  Buf_t get_rc_handler(const Buf_t& req)
   {
 
-    if (req.size() != sizeof(uint64_t))
+    if (req.size() != sizeof(u64))
       return Marshal::null_reply();
 
-    uint64_t qp_id;
+    u64 qp_id;
     bool res = Marshal::deserialize(req, qp_id);
     if (!res)
       return Marshal::null_reply();
 
-    ReplyHeader reply = {.reply_status = SUCC, .reply_payload = sizeof(qp_address_t)};
+    ReplyHeader reply = { .reply_status = SUCC,
+                          .reply_payload = sizeof(qp_address_t) };
 
     auto addr = get_rc_addr(qp_id);
 
-    if (addr.size() == 0)
-    {
+    if (addr.size() == 0) {
       reply.reply_status = NOT_READY;
       reply.reply_payload = 0;
     }
@@ -154,23 +153,22 @@ private:
     return reply_buf;
   }
 
-  Buf_t get_ud_handler(const Buf_t &req)
+  Buf_t get_ud_handler(const Buf_t& req)
   {
 
-    if (req.size() != sizeof(uint64_t))
+    if (req.size() < sizeof(u64)) {
       return Marshal::null_reply();
+    }
 
-    uint64_t qp_id;
-    bool res = Marshal::deserialize(req, qp_id);
-    if (!res)
-      return Marshal::null_reply();
+    u64 qp_id;
+    RDMA_ASSERT(Marshal::deserialize(req, qp_id));
 
-    ReplyHeader reply = {.reply_status = SUCC, .reply_payload = sizeof(qp_address_t)};
+    ReplyHeader reply = { .reply_status = SUCC,
+                          .reply_payload = sizeof(qp_address_t) };
 
     auto addr = get_ud_addr(qp_id);
 
-    if (addr.size() == 0)
-    {
+    if (addr.size() == 0) {
       reply.reply_status = NOT_READY;
       reply.reply_payload = 0;
     }
