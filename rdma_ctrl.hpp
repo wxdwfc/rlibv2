@@ -9,7 +9,7 @@
 
 namespace rdmaio
 {
-
+  
 class RdmaCtrl
 {
   RPCFactory rpc;
