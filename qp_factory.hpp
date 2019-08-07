@@ -129,7 +129,7 @@ private:
   Buf_t get_rc_handler(const Buf_t& req)
   {
 
-    if (req.size() != sizeof(u64))
+    if (req.size() < sizeof(u64))
       return Marshal::null_reply();
 
     u64 qp_id;
