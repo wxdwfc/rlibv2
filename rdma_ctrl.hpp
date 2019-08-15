@@ -4,16 +4,16 @@
 #include "qp_factory.hpp"
 #include "rpc_handler.hpp"
 
+#include <atomic>
 #include <functional>
 #include <pthread.h>
 
-namespace rdmaio
-{
-  
+namespace rdmaio {
+
 class RdmaCtrl
 {
   RPCFactory rpc;
-  bool running_ = false;
+  std::atomic<bool> running;
   pthread_t handler_tid_;
   std::mutex lock;
 
@@ -23,26 +23,26 @@ public:
   QPFactory qp_factory;
 
 public:
-  RdmaCtrl() = default;
+  RdmaCtrl()
+    : running(false)
+  {}
 
-  RdmaCtrl(int tcp_port, const std::string &ip = "localhost")
-      : lock()
+  RdmaCtrl(int tcp_port, const std::string& ip = "localhost")
+    : RdmaCtrl()
   {
     bind(tcp_port, ip);
   }
 
-  void bind(int tcp_port, const std::string &ip = "localhost")
+  void bind(int tcp_port, const std::string& ip = "localhost")
   {
     { // sanity check to avoid creating multiple threads
       std::lock_guard<std::mutex> lk(this->lock);
-      if (running_)
-      {
+      if (running) {
         RDMA_LOG(4) << "warning, RDMA ctrl has already binded to " << ip << ":"
                     << tcp_port;
         return;
-      }
-      else
-        running_ = true;
+      } else
+        running = true;
     }
     host_id_ = std::make_tuple(ip, tcp_port);
     RDMA_ASSERT(register_handler(REQ_MR,
@@ -66,12 +66,13 @@ public:
   ~RdmaCtrl()
   {
     std::lock_guard<std::mutex> lk(this->lock);
-    if (running_)
-    {
-      running_ = false; // wait for the handler to join
+    if (running) {
+      running = false; // wait for the handler to join
+      asm volatile("" ::: "memory");
+      RDMA_LOG(2) << "set runnign to false done";
       pthread_join(handler_tid_, NULL);
       RDMA_LOG(INFO)
-          << "rdma controler close: does not handle any future connections.";
+        << "rdma controler close: does not handle any future connections.";
     }
   }
 
@@ -81,9 +82,9 @@ public:
     return rpc.register_handler(rid, f);
   }
 
-  static void *listener_wrapper(void *context)
+  static void* listener_wrapper(void* context)
   {
-    return ((RdmaCtrl *)context)->req_handling_loop();
+    return ((RdmaCtrl*)context)->req_handling_loop();
   }
 
   /**
@@ -91,50 +92,43 @@ public:
    * This is not optimized, since we rarely we need the controler to
    * do performance critical jobs.
    */
-  void *req_handling_loop(void)
+  void* req_handling_loop(void)
   {
-    RDMA_ASSERT(running_ = true);
     pthread_detach(pthread_self());
     auto listenfd = PreConnector::get_listen_socket(std::get<0>(host_id_),
                                                     std::get<1>(host_id_));
 
     int opt = 1;
     RDMA_VERIFY(
-        ERROR,
-        setsockopt(
-            listenfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(int)) ==
-            0)
-        << "unable to configure socket status.";
+      ERROR,
+      setsockopt(
+        listenfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(int)) ==
+        0)
+      << "unable to configure socket status.";
     RDMA_VERIFY(ERROR, listen(listenfd, 24) == 0)
-        << "TCP listen error: " << strerror(errno);
+      << "TCP listen error: " << strerror(errno);
 
-    while (running_)
-    {
+    while (running.load()) {
 
-      asm volatile("" ::
-                       : "memory");
+      asm volatile("" ::: "memory");
 
-      struct sockaddr_in cli_addr = {0};
-      socklen_t clilen = sizeof(cli_addr);
-      auto csfd = accept(listenfd, (struct sockaddr *)&cli_addr, &clilen);
+      auto csfd = PreConnector::accept_with_timeout(listenfd);
 
-      if (csfd < 0)
-      {
-        RDMA_LOG(ERROR) << "accept a wrong connection error: "
-                        << strerror(errno);
+      if (csfd < 0) {
+        //        RDMA_LOG(ERROR) << "accept a wrong connection error: "
+        //                        << strerror(errno);
         continue;
       }
 
-      if (!PreConnector::wait_recv(csfd, default_timeout))
-      {
+      if (!PreConnector::wait_recv(csfd, default_timeout)) {
         close(csfd);
         continue;
       }
       auto reply = rpc.handle_one(csfd);
 
-      PreConnector::send_to(csfd, (char *)(reply.data()), reply.size());
+      PreConnector::send_to(csfd, (char*)(reply.data()), reply.size());
       PreConnector::wait_close(
-          csfd); // wait for the client to close the connection
+        csfd); // wait for the client to close the connection
       close(csfd);
     } // end loop
     close(listenfd);
