@@ -143,7 +143,7 @@ public:
       int ready = select(socket + 1, &rfds, nullptr, nullptr, &s_timeout);
 
       if (ready == 0) { // no file descriptor found
-        continue;
+        return false;   // timeout happens
       }
 
       if (ready < 0) { // error case
