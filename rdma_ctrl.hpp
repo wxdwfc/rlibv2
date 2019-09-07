@@ -126,7 +126,8 @@ public:
       }
       auto reply = rpc.handle_one(csfd);
 
-      PreConnector::send_to(csfd, (char*)(reply.data()), reply.size());
+      auto n = PreConnector::send_to(csfd, (char*)(reply.data()), reply.size());
+      // todo: check n's result
       PreConnector::wait_close(
         csfd); // wait for the client to close the connection
       close(csfd);

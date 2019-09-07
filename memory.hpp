@@ -82,16 +82,17 @@ public:
     // ibv_dereg_mr(mr);
   }
 
-  struct Attr
+  struct __attribute__ ((packed)) Attr
   {
     uintptr_t buf;
-    uint32_t key;
+    u32 key;
+    u64 sz;
   };
 
   Attr get_attr() const
   {
     auto key = valid() ? mr->rkey : 0;
-    return { .buf = (uintptr_t)(addr), .key = key };
+    return { .buf = (uintptr_t)(addr), .key = key, .sz = size };
   }
 
 private:

@@ -56,6 +56,7 @@ public:
         buf = Marshal::direct_forward(buf, reqdesc.payload);
       } catch (std::exception& e) {
         // pass
+        RDMA_ASSERT(false); // FIXME!
       }
     }
 

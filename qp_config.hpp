@@ -68,6 +68,10 @@ class QPConfig {
     return *this;
   }
 
+  bool allow_remote_read() const {
+    return (access_flags & IBV_ACCESS_REMOTE_READ) != 0;
+  }
+
   std::string desc_access_flags() const {
     std::string res = "The access flags of this qp: [ ";
     if(access_flags & IBV_ACCESS_REMOTE_WRITE)

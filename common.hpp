@@ -88,7 +88,7 @@ typedef struct
   u32 local_id;
 } qp_address_t;
 
-struct QPAttr
+  struct __attribute__ ((packed)) QPAttr
 {
   QPAttr(const qp_address_t &addr, u64 lid, u64 psn, u64 port_id, u64 qpn = 0, u64 qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
   {

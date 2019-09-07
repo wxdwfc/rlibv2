@@ -9,9 +9,9 @@ namespace rdmaio {
 
 using reply_size_t = u16;
 using req_size_t = u16;
-struct ReqHeader
+struct __attribute__((packed)) ReqHeader
 {
-  using elem_t = struct
+  using elem_t = struct __attribute__((packed))
   {
     u16 type;
     u16 payload;
@@ -21,7 +21,7 @@ struct ReqHeader
   u8 total_reqs = 0;
 };
 
-struct ReplyHeader_
+struct __attribute__((packed)) ReplyHeader_
 {
   reply_size_t reply_sizes[ReqHeader::max_batch_sz];
   u8 total_replies = 0;
@@ -121,6 +121,7 @@ public:
 
     // 2. the following handles replies
     Buf_t reply = Marshal::get_buffer(expected_reply_sz + sizeof(ReplyHeader_));
+
     n = recv(socket, (char*)(reply.data()), reply.size(), MSG_WAITALL);
     if (n < reply.size()) {
       return WRONG_ARG;
