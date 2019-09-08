@@ -28,13 +28,13 @@ namespace rdmaio {
  */
 
 enum loglevel {
-  NONE       = 7,
-  FATAL      = 6,
-  ERROR      = 5,
-  WARNING    = 4,
-  EMPH       = 3,
-  INFO       = 2,
-  DEBUG      = 1,
+  NONE = 7,
+  FATAL = 6,
+  ERROR = 5,
+  WARNING = 4,
+  EMPH = 3,
+  INFO = 2,
+  DEBUG = 1,
   EVERYTHING = 0
 };
 
@@ -46,63 +46,67 @@ enum loglevel {
 
 // logging macro definiations
 // default log
-#define RDMA_LOG(n)                                                      \
-  if (n >= RDMA_LOG_LEVEL)                                          \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, n).stream()
+#define RDMA_LOG(n)                                                            \
+  if (n >= RDMA_LOG_LEVEL)                                                     \
+  ::rdmaio::MessageLogger((char *)__FILE__, __LINE__, n).stream()
 
 // log with tag
-#define RDMA_TLOG(n,t)                                                   \
-  if(n >= RDMA_LOG_LEVEL)                                               \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, n).stream()    \
-          << "[" << (t) << "]"
+#define RDMA_TLOG(n, t)                                                        \
+  if (n >= RDMA_LOG_LEVEL)                                                     \
+  ::rdmaio::MessageLogger((char *)__FILE__, __LINE__, n).stream()              \
+      << "[" << (t) << "]"
 
-#define RDMA_LOG_IF(n,condition)                                         \
-  if(n >= RDMA_LOG_LEVEL && (condition))                            \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, n).stream()
+#define RDMA_LOG_IF(n, condition)                                              \
+  if (n >= RDMA_LOG_LEVEL && (condition))                                      \
+  ::rdmaio::MessageLogger((char *)__FILE__, __LINE__, n).stream()
 
-#define RDMA_ASSERT(condition)                                               \
-  if(unlikely(!(condition)))                                            \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, ::rdmaio::FATAL + 1).stream() << "Assertion! "
+#define RDMA_ASSERT(condition)                                                 \
+  if (unlikely(!(condition)))                                                  \
+  ::rdmaio::MessageLogger((char *)__FILE__, __LINE__, ::rdmaio::FATAL + 1)     \
+          .stream()                                                            \
+      << "Assertion! "
 
-#define RDMA_VERIFY(n,condition) RDMA_LOG_IF(n,(!(condition)))
+#define RDMA_VERIFY(n, condition) RDMA_LOG_IF(n, (!(condition)))
 
 class MessageLogger {
- public:
-  MessageLogger(const char *file, int line, int level) :level_(level) {
-    if(level_ < RDMA_LOG_LEVEL)
+public:
+  MessageLogger(const char *file, int line, int level) : level_(level) {
+    if (level_ < RDMA_LOG_LEVEL)
       return;
     stream_ << "[" << StripBasename(std::string(file)) << ":" << line << "] ";
   }
 
   ~MessageLogger() {
-    if(level_ >= RDMA_LOG_LEVEL) {
+    if (level_ >= RDMA_LOG_LEVEL) {
       stream_ << "\n";
-      std::cout << "\033[" << RDMA_DEBUG_LEVEL_COLOR[std::min(level_,6)] << "m"
+      std::cout << "\033[" << RDMA_DEBUG_LEVEL_COLOR[std::min(level_, 6)] << "m"
                 << stream_.str() << EndcolorFlag();
-      if(level_ >= ::rdmaio::FATAL)
+      if (level_ >= ::rdmaio::FATAL)
         abort();
     }
   }
 
   // Return the stream associated with the logger object.
   std::stringstream &stream() { return stream_; }
- private:
+
+private:
   std::stringstream stream_;
   int level_;
 
   // control flags for color
   enum {
-    R_BLACK   = 39,
-    R_RED     = 31,
-    R_GREEN   = 32,
-    R_YELLOW  = 33,
-    R_BULE    = 34,
+    R_BLACK = 39,
+    R_RED = 31,
+    R_GREEN = 32,
+    R_YELLOW = 33,
+    R_BULE = 34,
     R_MAGENTA = 35,
-    R_CYAN    = 36,
-    R_WHITE   = 37
+    R_CYAN = 36,
+    R_WHITE = 37
   };
 
-  const int RDMA_DEBUG_LEVEL_COLOR[7] = {R_BLACK,R_YELLOW,R_BLACK,R_GREEN,R_MAGENTA,R_RED,R_RED};
+  const int RDMA_DEBUG_LEVEL_COLOR[7] = {R_BLACK,   R_YELLOW, R_BLACK, R_GREEN,
+                                         R_MAGENTA, R_RED,    R_RED};
 
   static std::string StripBasename(const std::string &full_path) {
     const char kSeparator = '/';
@@ -116,7 +120,7 @@ class MessageLogger {
 
   static std::string EndcolorFlag() {
     char flag[7];
-    snprintf(flag,7, "%c[0m", 0x1B);
+    snprintf(flag, 7, "%c[0m", 0x1B);
     return std::string(flag);
   }
 };
