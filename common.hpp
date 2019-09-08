@@ -8,6 +8,8 @@
 #include <tuple>
 #include <infiniband/verbs.h>
 
+#include "option.hh"
+
 #include "logging.hpp"
 
 namespace rdmaio
@@ -63,7 +65,7 @@ enum
  * We use TCP/IP to identify the machine,
  * since RDMA requires an additional naming mechanism.
  */
-typedef std::tuple<std::string, int> MacID;
+using MacID = std::tuple<std::string, int>;
 inline MacID make_id(const std::string &ip, int port)
 {
   return std::make_tuple(ip, port);
@@ -71,7 +73,7 @@ inline MacID make_id(const std::string &ip, int port)
 
 class QPDummy
 {
-public:
+ public:
   bool valid() const
   {
     return qp_ != nullptr && cq_ != nullptr;
@@ -81,14 +83,14 @@ public:
   struct ibv_cq *recv_cq_ = nullptr;
 }; // a placeholder for a dummy class
 
-typedef struct
+typedef struct __attribute__ ((packed))
 {
   u64 subnet_prefix;
   u64 interface_id;
   u32 local_id;
 } qp_address_t;
 
-  struct __attribute__ ((packed)) QPAttr
+struct __attribute__ ((packed)) QPAttr
 {
   QPAttr(const qp_address_t &addr, u64 lid, u64 psn, u64 port_id, u64 qpn = 0, u64 qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
   {

@@ -11,22 +11,22 @@ namespace rdmaio {
 
 // Track the out-going and acknowledged reqs
 struct Progress {
-  static constexpr const u32 num_progress_bits = sizeof(uint16_t) * 8;
+  static constexpr const u32 num_progress_bits = sizeof(u16) * 8;
 
-  uint16_t high_watermark = 0;
-  uint16_t low_watermark = 0;
+  u16 high_watermark = 0;
+  u16 low_watermark = 0;
 
-  uint16_t forward(uint16_t num) {
+  u16 forward(u16 num) {
     high_watermark += num;
     return high_watermark;
   }
 
   void done(int num) { low_watermark = num; }
 
-  uint16_t pending_reqs() const {
+  u16 pending_reqs() const {
     if (high_watermark >= low_watermark)
       return high_watermark - low_watermark;
-    return std::numeric_limits<uint16_t>::max() -
+    return std::numeric_limits<u16>::max() -
            (low_watermark - high_watermark) + 1;
   }
 };
@@ -36,8 +36,8 @@ public:
   /*!
   The default memory attr used for each post_send
    */
-  RemoteMemory::Attr remote_mem_;
-  RemoteMemory::Attr local_mem_;
+  Option<RemoteMemory::Attr> remote_mem_;
+  Option<RemoteMemory::Attr> local_mem_;
 
   /*!
   QP connect info.
@@ -96,7 +96,7 @@ public:
   };
 
   IOStatus send(const ReqMeta &meta, const ReqContent &req) {
-    return send(meta, req, remote_mem_, local_mem_);
+    return send(meta, req, remote_mem_.value(), local_mem_.value());
   }
 
   IOStatus send(struct ibv_send_wr *send_sr, ibv_send_wr **bad_sr_addr) {
