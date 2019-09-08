@@ -108,7 +108,7 @@ public:
                   const ReqContent &req, ibv_send_wr *next = nullptr) {
     sge->addr = (u64)(req.local_buf);
     sge->length = meta.len;
-    sge->lkey = local_mem_.key;
+    sge->lkey = local_mem_.value().key;
 
     sr->wr_id =
         (meta.wr_id << Progress::num_progress_bits) | progress_.forward(1);
@@ -119,8 +119,8 @@ public:
     sr->send_flags = meta.flags;
     sr->imm_data = req.imm_data;
 
-    sr->wr.rdma.remote_addr = remote_mem_.buf + req.remote_addr;
-    sr->wr.rdma.rkey = remote_mem_.key;
+    sr->wr.rdma.remote_addr = remote_mem_.value().buf + req.remote_addr;
+    sr->wr.rdma.rkey = remote_mem_.value().key;
   }
 
   IOStatus send(const ReqMeta &meta, const ReqContent &req,
