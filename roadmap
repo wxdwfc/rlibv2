@@ -1,0 +1,7 @@
+Refine list:
+- Marshalling lib
+- Memory registration
+- QPs
+  - RC
+  - UD
+- RPC
