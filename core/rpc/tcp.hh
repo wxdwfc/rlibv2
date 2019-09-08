@@ -18,16 +18,19 @@ typedef struct timeval Duration_t;
 constexpr Duration_t default_timeout = { 0, 8000 };
 constexpr Duration_t no_timeout = { 0, 0 }; // it means forever
 
-class PreConnector
-{ // helper class used to exchange QP information using TCP/IP
-public:
+/*!
+ * Simple TCP server services for pre-connecting RDMA connections
+ */
+class SimpleTCP
+{
+ public:
   static int get_listen_socket(const std::string& addr, int port)
   {
 
     struct sockaddr_in serv_addr;
     auto sockfd = socket(AF_INET, SOCK_STREAM, 0);
     RDMA_ASSERT(sockfd >= 0)
-      << "ERROR opening listen socket: " << strerror(errno);
+        << "ERROR opening listen socket: " << strerror(errno);
 
     /* setup the host_addr structure for use in bind call */
     // server byte order
@@ -41,12 +44,12 @@ public:
     // avoid TCP's TIME_WAIT state causing "ADDRESS ALREADY USE" Error
     int addr_reuse = 1;
     auto ret = setsockopt(
-      sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse, sizeof(addr_reuse));
+        sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse, sizeof(addr_reuse));
     RDMA_ASSERT(ret == 0);
 
     RDMA_ASSERT(bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) ==
                 0)
-      << "ERROR on binding: " << strerror(errno);
+        << "ERROR on binding: " << strerror(errno);
     return sockfd;
   }
 
@@ -85,7 +88,7 @@ public:
     struct sockaddr_in serv_addr;
 
     RDMA_ASSERT((sockfd = socket(AF_INET, SOCK_STREAM, 0)) >= 0)
-      << "Error open socket for send!";
+        << "Error open socket for send!";
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
 
     serv_addr.sin_family = AF_INET;
@@ -107,7 +110,7 @@ public:
       close(sockfd);
       return -1;
     }
-  PROGRESS:
+ PROGRESS:
     // check return status
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -166,7 +169,7 @@ public:
 
     Duration_t timeout = { 1, 0 };
     auto ret = setsockopt(
-      socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+        socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
     if (ret == 0)
       recv(socket, buf, 2, 0);
     close(socket);
@@ -214,7 +217,7 @@ public:
     int result = getaddrinfo(host.c_str(), nullptr, &hints, &infoptr);
     if (result) {
       fprintf(
-        stderr, "getaddrinfo: %s at %s\n", gai_strerror(result), host.c_str());
+          stderr, "getaddrinfo: %s at %s\n", gai_strerror(result), host.c_str());
       return "";
     }
     char ip[64];
@@ -222,7 +225,7 @@ public:
 
     for (struct addrinfo* p = infoptr; p != nullptr; p = p->ai_next) {
       getnameinfo(
-        p->ai_addr, p->ai_addrlen, ip, sizeof(ip), nullptr, 0, NI_NUMERICHOST);
+          p->ai_addr, p->ai_addrlen, ip, sizeof(ip), nullptr, 0, NI_NUMERICHOST);
     }
 
     res = std::string(ip);

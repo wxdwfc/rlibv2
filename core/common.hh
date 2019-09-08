@@ -71,39 +71,6 @@ inline MacID make_id(const std::string &ip, int port)
   return std::make_tuple(ip, port);
 }
 
-class QPDummy
-{
- public:
-  bool valid() const
-  {
-    return qp_ != nullptr && cq_ != nullptr;
-  }
-  struct ibv_qp *qp_ = nullptr;
-  struct ibv_cq *cq_ = nullptr;
-  struct ibv_cq *recv_cq_ = nullptr;
-}; // a placeholder for a dummy class
-
-typedef struct __attribute__ ((packed))
-{
-  u64 subnet_prefix;
-  u64 interface_id;
-  u32 local_id;
-} qp_address_t;
-
-struct __attribute__ ((packed)) QPAttr
-{
-  QPAttr(const qp_address_t &addr, u64 lid, u64 psn, u64 port_id, u64 qpn = 0, u64 qkey = 0) : addr(addr), lid(lid), qpn(qpn), psn(psn), port_id(port_id)
-  {
-  }
-  QPAttr() {}
-  qp_address_t addr;
-  u64 lid;
-  u64 psn;
-  u64 port_id;
-  u64 qpn;
-  u64 qkey;
-};
-
 } // namespace rdmaio
 
 #include "marshal.hpp"
