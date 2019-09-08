@@ -19,15 +19,8 @@ class Dummy {
   Below structures are make packed to allow communicating
   between servers
  */
-struct __attribute__ ((packed)) QPAddress
-{
-  u64 subnet_prefix;
-  u64 interface_id;
-  u32 local_id;
-};
-
 struct __attribute__ ((packed)) QPAttr {
-  qp_address_t addr;
+  RAddress addr;
   u64 lid;
   u64 psn;
   u64 port_id;

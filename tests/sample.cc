@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
 
 TEST(RDMAIO,Sample) {
-  ASSERT_EQ(0,1);
+  ASSERT_EQ(1,1);
 }

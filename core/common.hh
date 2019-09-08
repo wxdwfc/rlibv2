@@ -8,9 +8,8 @@
 #include <tuple>
 #include <infiniband/verbs.h>
 
-#include "option.hh"
-
-#include "logging.hpp"
+#include "./utils/option.hh"
+#include "./utils/logging.hh"
 
 namespace rdmaio
 {
@@ -58,20 +57,7 @@ enum RESERVED_REQ_ID
 
 enum
 {
-  MAX_INLINE_SIZE = 64
+  MAX_RDMA_INLINE_SIZE = 64
 };
 
-/**
- * We use TCP/IP to identify the machine,
- * since RDMA requires an additional naming mechanism.
- */
-using MacID = std::tuple<std::string, int>;
-inline MacID make_id(const std::string &ip, int port)
-{
-  return std::make_tuple(ip, port);
-}
-
 } // namespace rdmaio
-
-#include "marshal.hpp"
-#include "pre_connector.hpp"

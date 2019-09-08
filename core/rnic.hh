@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.hpp"
+#include "../common.hh"
 
 #include <iostream>
 #include <vector>
@@ -41,13 +41,8 @@ class RNic {
     // pd must he deallocaed before ctx
     if(pd != nullptr) {
       ibv_dealloc_pd(pd);
-      //RDMA_VERIFY(INFO,ibv_dealloc_pd(pd) == 0)
-      //<< "failed to dealloc pd at device " << id
-      //  << "; w error " << strerror(errno);
     }
     if(ctx != nullptr) {
-      //RDMA_VERIFY(INFO,ibv_close_device(ctx) == 0)
-      //<< "failed to close device " << id;
       ibv_close_device(ctx);
     }
 
@@ -86,7 +81,7 @@ class RNic {
     return ret;
   }
 
-  struct ibv_pd *alloc_pd(struct ibv_context *c) {
+  struct ibv_pd *alloc_pd() {
     if(c == nullptr) return nullptr;
     auto ret = ibv_alloc_pd(c);
     if(ret == nullptr) {
@@ -95,7 +90,7 @@ class RNic {
     return ret;
   }
 
-  int fetch_lid(ibv_context *ctx,DevIdx idx) {
+  int fetch_lid(const DevIdx &idx) {
     ibv_port_attr port_attr;
     auto rc = ibv_query_port(ctx, idx.port_id, &port_attr);
     if(rc >= 0)
