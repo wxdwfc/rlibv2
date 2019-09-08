@@ -18,19 +18,6 @@ add_subdirectory(${gflags_DIR})
 include_directories(${gflags_DIR}/include)
 set_property(DIRECTORY ${gflags_DIR} PROPERTY COMPILE_DEFINITIONS STRIP_FLAG_HELP=1)
 
-## include paths
-include_directories(ralloc)
-
-include( ExternalProject )
-set(SSMALLOC_INSTALL_DIR ${CMAKE_SOURCE_DIR}/)
-ExternalProject_Add(ralloc
-  SOURCE_DIR ${CMAKE_SOURCE_DIR}/ralloc
-  CONFIGURE_COMMAND mkdir -p  ${SSMALLOC_INSTALL_DIR}/lib
-  BUILD_COMMAND make
-  BUILD_IN_SOURCE 1
-  INSTALL_COMMAND make install
-)
-
 SET(TESTS
     rnic
     simple_connect
@@ -46,8 +33,10 @@ add_executable(pclient "examples/rc_pingpong/client.cc")
 add_executable(pserver "examples/rc_pingpong/server.cc")
 
 FOREACH(TEST ${TESTS}) 
-             add_dependencies(${TEST} ralloc gflags)
+             add_dependencies(${TEST} gflags)
              target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB} ${gflags_DIR}/libgflags_nothreads.a)
 ENDFOREACH()
+
+
 
 
