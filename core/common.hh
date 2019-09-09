@@ -66,7 +66,7 @@ template <typename D = DummyDesc> inline Result<D> Ok(const D &d = D()) {
   return {.code = IOCode(IOCode::Ok), .desc = d};
 }
 
-template <typename D = DummyDesc> inline Result<D> NearOk(const D &d = ()) {
+template <typename D = DummyDesc> inline Result<D> NearOk(const D &d = D()) {
   return {.code = IOCode(IOCode::NearOk), .desc = d};
 }
 
