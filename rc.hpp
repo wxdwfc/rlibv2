@@ -7,23 +7,27 @@
 
 #include <limits>
 
-namespace rdmaio {
+namespace rdmaio
+{
 
 // Track the out-going and acknowledged reqs
-struct Progress {
+struct Progress
+{
   static constexpr const u32 num_progress_bits = sizeof(u16) * 8;
 
   u16 high_watermark = 0;
   u16 low_watermark = 0;
 
-  u16 forward(u16 num) {
+  u16 forward(u16 num)
+  {
     high_watermark += num;
     return high_watermark;
   }
 
   void done(int num) { low_watermark = num; }
 
-  u16 pending_reqs() const {
+  u16 pending_reqs() const
+  {
     if (high_watermark >= low_watermark)
       return high_watermark - low_watermark;
     return std::numeric_limits<u16>::max() -
@@ -31,7 +35,8 @@ struct Progress {
   }
 };
 
-class alignas(128) RCQP : public QPDummy {
+class alignas(128) RCQP : public QPDummy
+{
 public:
   /*!
   The default memory attr used for each post_send
@@ -57,7 +62,8 @@ public:
        bool two_sided = false)
       : remote_mem_(remote_mem), local_mem_(local_mem),
         send_queue_depth(config.max_send_size),
-        attr(rnic.addr, rnic.lid, config.rq_psn, rnic.id.port_id) {
+        attr(rnic.addr, rnic.lid, config.rq_psn, rnic.id.port_id)
+  {
     cq_ = QPUtily::create_cq(rnic, config.max_send_size);
     if (two_sided)
       recv_cq_ = QPUtily::create_cq(rnic, config.max_recv_size);
@@ -68,11 +74,13 @@ public:
       attr.qpn = qp_->qp_num;
   }
 
-  ~RCQP() {
+  ~RCQP()
+  {
     // QPUtily::destroy_qp(qp_);
   }
 
-  IOStatus connect(const QPAttr &attr, const QPConfig &config) {
+  IOStatus connect(const QPAttr &attr, const QPConfig &config)
+  {
     if (qp_status() == IBV_QPS_RTS)
       return SUCC;
     if (!bring_rc_to_rcv(qp_, config, attr, this->attr.port_id))
@@ -82,30 +90,35 @@ public:
     return SUCC;
   }
 
-  struct ReqMeta {
+  struct ReqMeta
+  {
     ibv_wr_opcode op;
     int flags;
     u32 len = 0;
     u64 wr_id = 0;
   };
 
-  struct ReqContent {
+  struct ReqContent
+  {
     char *local_buf = nullptr;
     u64 remote_addr = 0;
     u64 imm_data = 0;
   };
 
-  IOStatus send(const ReqMeta &meta, const ReqContent &req) {
+  IOStatus send(const ReqMeta &meta, const ReqContent &req)
+  {
     return send(meta, req, remote_mem_.value(), local_mem_.value());
   }
 
-  IOStatus send(struct ibv_send_wr *send_sr, ibv_send_wr **bad_sr_addr) {
+  IOStatus send(struct ibv_send_wr *send_sr, ibv_send_wr **bad_sr_addr)
+  {
     auto rc = ibv_post_send(qp_, send_sr, bad_sr_addr);
     return rc == 0 ? SUCC : ERR;
   }
 
   void prepare_wr(ibv_send_wr *sr, ibv_sge *sge, const ReqMeta &meta,
-                  const ReqContent &req, ibv_send_wr *next = nullptr) {
+                  const ReqContent &req, ibv_send_wr *next = nullptr)
+  {
     sge->addr = (u64)(req.local_buf);
     sge->length = meta.len;
     sge->lkey = local_mem_.value().key;
@@ -125,9 +138,11 @@ public:
 
   IOStatus send(const ReqMeta &meta, const ReqContent &req,
                 const RemoteMemory::Attr &remote_attr,
-                const RemoteMemory::Attr &local_attr) {
+                const RemoteMemory::Attr &local_attr)
+  {
     // setting the SGE
-    struct ibv_sge sge {
+    struct ibv_sge sge
+    {
       .addr = (u64)(req.local_buf), .length = meta.len, .lkey = local_attr.key
     };
 
@@ -149,7 +164,8 @@ public:
     return rc == 0 ? SUCC : ERR;
   }
 
-  u64 poll_one_comp(ibv_wc &wc) {
+  u64 poll_one_comp(ibv_wc &wc)
+  {
     auto poll_result = ibv_poll_cq(cq_, 1, &wc);
     if (poll_result == 0)
       return 0;
@@ -161,15 +177,25 @@ public:
     return user_wr;
   }
 
-  IOStatus wait_completion(ibv_wc &wc, const Duration_t &timeout = no_timeout) {
-    return QPUtily::wait_completion(cq_, wc, timeout);
+  IOStatus wait_completion(ibv_wc &wc, const Duration_t &timeout = no_timeout)
+  {
+    auto res = QPUtily::wait_completion(cq_, wc, timeout);
+    if (res == SUCC)
+    {
+      u64 user_wr = wc.wr_id >> (Progress::num_progress_bits);
+      u64 water_mark = wc.wr_id & 0xffff;
+
+      progress_.done(water_mark);
+    }
+    return res;
   }
 
   QPAttr get_attr() const { return attr; }
 
 public:
   static bool bring_rc_to_rcv(ibv_qp *qp, const QPConfig &config,
-                              const QPAttr &attr, int port_id) {
+                              const QPAttr &attr, int port_id)
+  {
     struct ibv_qp_attr qp_attr = {};
     qp_attr.qp_state = IBV_QPS_RTR;
     qp_attr.path_mtu = IBV_MTU_4096;
@@ -197,7 +223,8 @@ public:
     return rc == 0;
   }
 
-  static bool bring_rc_to_send(ibv_qp *qp, const QPConfig &config) {
+  static bool bring_rc_to_send(ibv_qp *qp, const QPConfig &config)
+  {
     int rc, flags;
     struct ibv_qp_attr qp_attr = {};
 
@@ -219,7 +246,8 @@ private:
   /**
    * return whether qp is in {INIT,READ_TO_RECV,READY_TO_SEND} states
    */
-  ibv_qp_state qp_status() const {
+  ibv_qp_state qp_status() const
+  {
     struct ibv_qp_attr attr;
     struct ibv_qp_init_attr init_attr;
     RDMA_ASSERT(ibv_query_qp(qp_, &attr, IBV_QP_STATE, &init_attr) == 0);
