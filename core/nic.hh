@@ -117,6 +117,8 @@ private:
                   .local_id = gid_index};
     return Option<RAddress>(addr);
   }
+
+  DISABLE_COPY_AND_ASSIGN(RNic);
 };
 
 } // namespace rdmaio

@@ -87,4 +87,9 @@ using u8 = uint8_t;
 using i8 = int8_t;
 using usize = unsigned int;
 
+#define DISABLE_COPY_AND_ASSIGN(classname)                                     \
+private:                                                                       \
+  classname(const classname &) = delete;                                       \
+  classname &operator=(const classname &) = delete
+
 } // namespace rdmaio

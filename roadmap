@@ -1,9 +1,11 @@
 Refine list:
 - Different codes (done, good result code)
 - Marshalling lib (done)
-- Memory
-- Memory registration
+- Memory (done)
+- Memory registration + factory
 - QPs
   - RC
+- Simple RPC
+  - timeout
+- QPs
   - UD
-- RPC
