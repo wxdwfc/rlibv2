@@ -7,6 +7,11 @@
 
 namespace rdmaio {
 
+/*!
+  RNic is an abstraction of ib_ctx and ib_pd.
+  It does the following thing:
+  - open a context, protection domain, and filled the address.
+ */
 class RNic {
   // context exposed by libibverbs
   struct ibv_context *ctx = nullptr;

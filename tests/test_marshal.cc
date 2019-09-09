@@ -2,9 +2,9 @@
 
 #include "../core/utils/marshal.hh"
 
-TEST(RDMAIO,Marshal) {
+using namespace rdmaio;
 
-  using namespace rdmaio;
+TEST(Marshal,basic) {
 
   // init the test buffer
   usize test_sz = 12;
@@ -25,4 +25,12 @@ TEST(RDMAIO,Marshal) {
     res = Marshal::forward(res.value(), 1);
   }
   ASSERT_EQ(count, test_sz);
+}
+
+
+TEST(Marshal,dedump) {
+  u64 test_val = 73;
+  auto buf = Marshal::dump(test_val);
+  auto dedumped_val = Marshal::dedump<u64>(buf).value();
+  ASSERT_EQ(dedumped_val,test_val);
 }
