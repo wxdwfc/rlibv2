@@ -1,6 +1,7 @@
 Refine list:
 - Different codes (done, good result code)
-- Marshalling lib
+- Marshalling lib (done)
+- Memory
 - Memory registration
 - QPs
   - RC
