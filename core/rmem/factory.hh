@@ -37,7 +37,7 @@ public:
     }
     if(mr->valid()) {
       registered_mrs.insert(std::make_pair(mr_id, mr));
-      return Ok(Option<u64>(0));
+      return Ok(Option<u64>(0)); // it's ok, so no need to pass descrption
     }
     return Err<Option<u64>>({});
   }

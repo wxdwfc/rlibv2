@@ -9,7 +9,7 @@ TEST(Marshal,basic) {
   // init the test buffer
   usize test_sz = 12;
 
-  U8buf test_buf = Marshal::alloc_buf(test_sz);
+  ByteBuffer test_buf = Marshal::alloc_buf(test_sz);
   for(u8 i = 0;i < test_sz;++i) {
     //Marshal::safe_set_byte(test_buf,i,i);
     test_buf[i] = i;
@@ -30,7 +30,7 @@ TEST(Marshal,basic) {
 
 TEST(Marshal,dedump) {
   u64 test_val = 73;
-  auto buf = Marshal::dump(test_val);
+  ByteBuffer buf = Marshal::dump(test_val);
   auto dedumped_val = Marshal::dedump<u64>(buf).value();
   ASSERT_EQ(dedumped_val,test_val);
 }
