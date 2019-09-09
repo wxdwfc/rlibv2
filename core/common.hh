@@ -5,32 +5,80 @@
 #pragma once
 
 #include <cstdint>
-#include <tuple>
 #include <infiniband/verbs.h>
+#include <tuple>
 
-#include "./utils/option.hh"
 #include "./utils/logging.hh"
+#include "./utils/option.hh"
 
-namespace rdmaio
-{
+namespace rdmaio {
 
-// some constants definiations
-// connection status
-enum IOStatus
-{
-  SUCC = 0,
-  TIMEOUT = 1,
-  WRONG_ARG = 2,
-  ERR = 3,
-  NOT_READY = 4,
-  UNKNOWN = 5,
-  WRONG_ID = 6,
-  WRONG_REPLY = 7,
-  NOT_CONNECT = 8,
-  EJECT = 9,
-  REPEAT_CREATE = 10
+struct __attribute__((packed)) IOCode {
+  enum Code {
+    Ok = 0,
+    Err = 1,
+    Timeout = 2,
+    NearOk = 3, // there is some error, but may be tolerated
+  };
+
+  Code c;
+
+  explicit IOCode(const Code &c) : c(c) {}
+
+  std::string name() {
+    switch (c) {
+    case Ok:
+      return "Ok";
+    case Err:
+      return "Err";
+    case Timeout:
+      return "Timeout";
+    case NearOk:
+      return "NearOk";
+    default:
+      assert(false); // should not happen
+    }
+  }
+
+  inline bool operator==(const Code &code) { return c == code; }
 };
 
+struct __attribute__((packed)) DummyDesc {
+  DummyDesc() = default;
+};
+
+/*!
+  The abstract result of IO request, with a code and detailed descrption if
+  error happens.
+*/
+template <typename Desc = DummyDesc> struct __attribute__((packed)) Result {
+  IOCode code;
+  Desc desc;
+};
+
+/*!
+  Some wrapper functions for help creating results
+  Example:
+    auto res = Ok();
+    assert(std::get<0)>(res) == IOCode::Ok);
+ */
+template <typename D = DummyDesc> inline Result<D> Ok(const D &d = D()) {
+  return {.code = IOCode(IOCode::Ok), .desc = d};
+}
+
+template <typename D = DummyDesc> inline Result<D> NearOk(const D &d = ()) {
+  return {.code = IOCode(IOCode::NearOk), .desc = d};
+}
+
+template <typename D = DummyDesc> inline Result<D> Err(const D &d = D()) {
+  return {.code = IOCode(IOCode::Err), .desc = d};
+}
+
+template <typename D = DummyDesc> inline Result<D> Timeout(const D &d = D()) {
+  return {.code = IOCode(IOCode::Timeout), .desc = d};
+}
+
+// some handy integer defines
 using u64 = uint64_t;
 using u32 = uint32_t;
 using u16 = uint16_t;
@@ -38,26 +86,5 @@ using i64 = int64_t;
 using u8 = uint8_t;
 using i8 = int8_t;
 using usize = unsigned int;
-
-/**
- * Programmer can register simple request handler to RdmaCtrl.
- * The request can be bound to an ID.
- * This function serves as the pre-link part of the system.
- * So only simple function request handling is supported.
- * For example, we use this to serve the QP and MR information to other nodes.
- */
-enum RESERVED_REQ_ID
-{
-  REQ_RC = 0,
-  REQ_UD = 1,
-  REQ_UC = 2,
-  REQ_MR = 3,
-  FREE = 4
-};
-
-enum
-{
-  MAX_RDMA_INLINE_SIZE = 64
-};
 
 } // namespace rdmaio
