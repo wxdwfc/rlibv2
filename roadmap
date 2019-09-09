@@ -2,7 +2,7 @@ Refine list:
 - Different codes (done, good result code)
 - Marshalling lib (done)
 - Memory (done)
-- Memory registration + factory
+- Memory registration + factory (done)
 - QPs
   - RC
 - Simple RPC
