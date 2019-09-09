@@ -16,7 +16,7 @@ using ByteBuffer = std::string;
 
   Example:
   1. get a u8 buf initialized with 0.
-    ` auto buf = Marshal::alloc_buf(size);`
+    ` auto buf = Marshal::alloc(size);`
   2. Dump a struct to a buf, and dedump it to get it.
   ` struct __attribute__((packed)) A { // note struct must be packed
       u8 a;
@@ -29,7 +29,7 @@ using ByteBuffer = std::string;
  */
 class Marshal {
 public:
-  static ByteBuffer alloc_buf(usize size) { return ByteBuffer(size, '0'); }
+  static ByteBuffer alloc(usize size) { return ByteBuffer(size, '0'); }
 
   /*!
     Subtract the current buffer at offset.
@@ -52,7 +52,7 @@ public:
   }
 
   template <typename T> static ByteBuffer dump(const T &t) {
-    auto buf = alloc_buf(sizeof(T));
+    auto buf = alloc(sizeof(T));
     memcpy((void *)buf.data(), &t, sizeof(T)); // unsafe code
     return buf;
   }

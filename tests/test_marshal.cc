@@ -9,7 +9,7 @@ TEST(Marshal,basic) {
   // init the test buffer
   usize test_sz = 12;
 
-  ByteBuffer test_buf = Marshal::alloc_buf(test_sz);
+  ByteBuffer test_buf = Marshal::alloc(test_sz);
   for(u8 i = 0;i < test_sz;++i) {
     //Marshal::safe_set_byte(test_buf,i,i);
     test_buf[i] = i;

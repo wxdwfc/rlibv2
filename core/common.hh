@@ -41,6 +41,8 @@ struct __attribute__((packed)) IOCode {
   }
 
   inline bool operator==(const Code &code) { return c == code; }
+
+  inline bool operator!=(const Code &code) { return c != code; }
 };
 
 struct __attribute__((packed)) DummyDesc {

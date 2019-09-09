@@ -1,31 +1,47 @@
 #pragma once
 
-#include "common.hpp"
-
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h> //hostent
-#include <string.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include <map>
 
+#include "../common.hh"
+
 namespace rdmaio {
 
-typedef struct timeval Duration_t;
-constexpr Duration_t default_timeout = { 0, 8000 };
-constexpr Duration_t no_timeout = { 0, 0 }; // it means forever
+const constexpr double notimeout = static_cast<double>(std::numeric_limits<int>::max());
 
 /*!
  * Simple TCP server services for pre-connecting RDMA connections
  */
-class SimpleTCP
-{
- public:
-  static int get_listen_socket(const std::string& addr, int port)
-  {
+class SimpleTCP {
+public:
+  /*!
+    given a "host:port", return (host,port)
+   */
+  static Option<std::pair<std::string, int>> parse_addr(const std::string &h) {
+    auto pos = h.find(':');
+    if (pos != std::string::npos) {
+      std::string host_str = h.substr(0, pos);
+      std::string port_str = h.substr(pos + 1);
+
+      std::stringstream parser(port_str);
+
+      int port = 0;
+      if (parser >> port) {
+        return std::make_pair(host_str, port);
+      }
+    }
+    return {};
+  }
+
+  /*!
+    Panic if failed to get one
+   */
+  static int get_listen_socket(const std::string &addr, int port) {
 
     struct sockaddr_in serv_addr;
     auto sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -43,47 +59,49 @@ class SimpleTCP
 
     // avoid TCP's TIME_WAIT state causing "ADDRESS ALREADY USE" Error
     int addr_reuse = 1;
-    auto ret = setsockopt(
-        sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse, sizeof(addr_reuse));
+    auto ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &addr_reuse,
+                          sizeof(addr_reuse));
     RDMA_ASSERT(ret == 0);
 
-    RDMA_ASSERT(bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) ==
-                0)
+    RDMA_ASSERT(
+        bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == 0)
         << "ERROR on binding: " << strerror(errno);
     return sockfd;
   }
 
-  static int accept_with_timeout(int socket,
-                                 const Duration_t& timeout = { 1, 0 })
-  {
+  static Result<std::pair<int, std::string>>
+  accept_with_timeout(int socket, double timeout) {
 
     while (true) {
       fd_set rfds;
       FD_ZERO(&rfds);
       FD_SET(socket, &rfds);
 
-      Duration_t s_timeout = timeout;
-      auto ready = select(socket + 1, &rfds, nullptr, nullptr, &s_timeout);
+      struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(timeout)};
+      auto ready = select(socket + 1, &rfds, nullptr, nullptr, &tv);
 
       if (ready < 0) { // error case
-        // RDMA_ASSERT(false) << "select error " << strerror(errno);
-        return -1;
+        return Err(std::make_pair(ready, std::string(strerror(errno))));
       }
 
       if (FD_ISSET(socket, &rfds)) {
-        struct sockaddr_in cli_addr = { 0 };
+        struct sockaddr_in cli_addr = {0};
         socklen_t clilen = sizeof(cli_addr);
-        return accept(socket, (struct sockaddr*)&cli_addr, &clilen);
+        return Ok(std::make_pair(
+                                 accept(socket, (struct sockaddr *)&cli_addr, &clilen), std::string("")));
       } else
         break;
     }
-    return -1; // timeout happens
+    return Timeout(std::make_pair(0, std::string("")));
   }
 
-  static int get_send_socket(const std::string& addr,
-                             int port,
-                             Duration_t timeout = default_timeout)
-  {
+  /*!
+    Alloc and connect a socket to the remote endpoint.
+    Note: timeout in usec.
+   */
+  static Result<std::pair<int, std::string>>
+  get_send_socket(const std::string &addr, int port,
+                  double timeout) {
     int sockfd;
     struct sockaddr_in serv_addr;
 
@@ -97,26 +115,27 @@ class SimpleTCP
     auto ip = host_to_ip(addr);
     if (ip == "") {
       close(sockfd);
-      return -1;
+      return Err(std::make_pair(-1,std::string("failed parse ip")));
     }
 
     serv_addr.sin_addr.s_addr = inet_addr(ip.c_str());
 
-    if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) ==
+    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) ==
         -1) {
       if (errno == EINPROGRESS) {
         goto PROGRESS;
       }
       close(sockfd);
-      return -1;
+      return Err(std::make_pair(errno,std::string(strerror(errno))));
     }
- PROGRESS:
+  PROGRESS:
     // check return status
     fd_set fdset;
     FD_ZERO(&fdset);
     FD_SET(sockfd, &fdset);
 
-    if (select(sockfd + 1, nullptr, &fdset, nullptr, &timeout) == 1) {
+    struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(timeout)};
+    if (select(sockfd + 1, nullptr, &fdset, nullptr, &tv) == 1) {
       int so_error;
       socklen_t len = sizeof so_error;
 
@@ -126,15 +145,14 @@ class SimpleTCP
         // success
       } else {
         close(sockfd);
-        return -1;
+        return Err(std::make_pair(errno,std::string(strerror(errno))));
       }
     }
 
-    return sockfd;
+    return Ok(std::make_pair(sockfd,std::string("")));
   }
 
-  static bool wait_recv(int socket, const Duration_t& timeout)
-  {
+  static bool wait_recv(int socket, const double &timeout) {
 
     while (true) {
 
@@ -142,8 +160,8 @@ class SimpleTCP
       FD_ZERO(&rfds);
       FD_SET(socket, &rfds);
 
-      Duration_t s_timeout = timeout;
-      int ready = select(socket + 1, &rfds, nullptr, nullptr, &s_timeout);
+      struct timeval tv = {.tv_sec = 0, .tv_usec = timeout};
+      int ready = select(socket + 1, &rfds, nullptr, nullptr, &tv);
 
       if (ready == 0) { // no file descriptor found
         return false;   // timeout happens
@@ -161,25 +179,23 @@ class SimpleTCP
     return true;
   }
 
-  static void wait_close(int socket)
-  {
+  static void wait_close(int socket) {
 
     shutdown(socket, SHUT_WR);
     char buf[2];
 
-    Duration_t timeout = { 1, 0 };
-    auto ret = setsockopt(
-        socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+    struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+    auto ret = setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO,
+                          (const char *)&tv, sizeof(tv));
     if (ret == 0)
       recv(socket, buf, 2, 0);
     close(socket);
   }
 
-  static int send_to(int fd, char* usrbuf, size_t n)
-  {
+  static int send(int fd, const char *usrbuf, size_t n) {
     size_t nleft = n;
     ssize_t nwritten;
-    char* bufp = usrbuf;
+    const char *bufp = usrbuf;
 
     while (nleft > 0) {
       if ((nwritten = write(fd, bufp, nleft)) <= 0) {
@@ -195,16 +211,14 @@ class SimpleTCP
   }
 
   typedef std::map<std::string, std::string> ipmap_t;
-  static ipmap_t& local_ip_cache()
-  {
+  static ipmap_t &local_ip_cache() {
     static __thread ipmap_t cache;
     return cache;
   }
 
-  static std::string host_to_ip(const std::string& host)
-  {
+  static std::string host_to_ip(const std::string &host) {
 
-    ipmap_t& cache = local_ip_cache();
+    ipmap_t &cache = local_ip_cache();
     if (cache.find(host) != cache.end())
       return cache[host];
 
@@ -216,16 +230,16 @@ class SimpleTCP
 
     int result = getaddrinfo(host.c_str(), nullptr, &hints, &infoptr);
     if (result) {
-      fprintf(
-          stderr, "getaddrinfo: %s at %s\n", gai_strerror(result), host.c_str());
+      fprintf(stderr, "getaddrinfo: %s at %s\n", gai_strerror(result),
+              host.c_str());
       return "";
     }
     char ip[64];
     memset(ip, 0, sizeof(ip));
 
-    for (struct addrinfo* p = infoptr; p != nullptr; p = p->ai_next) {
-      getnameinfo(
-          p->ai_addr, p->ai_addrlen, ip, sizeof(ip), nullptr, 0, NI_NUMERICHOST);
+    for (struct addrinfo *p = infoptr; p != nullptr; p = p->ai_next) {
+      getnameinfo(p->ai_addr, p->ai_addrlen, ip, sizeof(ip), nullptr, 0,
+                  NI_NUMERICHOST);
     }
 
     res = std::string(ip);
