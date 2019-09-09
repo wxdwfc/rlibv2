@@ -1,11 +1,14 @@
 Refine list:
-- Different codes (done, good result code)
+0;95;0c- Different codes (done, good result code)
 - Marshalling lib (done)
 - Memory (done)
 - Memory registration + factory (done)
 - QPs
   - RC
 - Simple RPC
-  - timeout
+  - timeout (done)
+  - TCP (done)
+  - RPC sender
+  - RPC receiver
 - QPs
   - UD
