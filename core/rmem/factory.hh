@@ -42,6 +42,20 @@ public:
     return Err<Option<u64>>({});
   }
 
+  Option<std::shared_ptr<RegHandler>> deregister_mr(const u64 &mr_id) {
+    std::lock_guard<std::mutex> guard(lock);
+    auto it = registered_mrs.find(mr_id);
+    if (it != registered_mrs.end()) {
+      auto ret = Option<std::shared_ptr<RegHandler>>(it->second);
+      registered_mrs.erase(it);
+      return ret;
+    }
+    return {};
+  }
+
+  /*!
+    Query the attr by the id
+   */
   Option<RegAttr> get_attr_byid(const u64 &mr_id) {
     std::lock_guard<std::mutex> guard(lock);
     auto it = registered_mrs.find(mr_id);

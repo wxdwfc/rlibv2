@@ -78,8 +78,8 @@ public:
 
   ~RemoteMemory()
   {
-    // if(mr != nullptr)
-    // ibv_dereg_mr(mr);
+    if(mr != nullptr)
+      ibv_dereg_mr(mr);
   }
 
   struct __attribute__ ((packed)) Attr

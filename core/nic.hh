@@ -48,10 +48,12 @@ public:
   ~RNic() {
     // pd must he deallocaed before ctx
     if (pd != nullptr) {
-      ibv_dealloc_pd(pd);
+      auto rc = ibv_dealloc_pd(pd);
+      RDMA_LOG_IF(2,rc != 0) << "deallocate pd error: " << strerror(errno);
     }
     if (ctx != nullptr) {
-      ibv_close_device(ctx);
+      auto rc = ibv_close_device(ctx);
+      RDMA_LOG_IF(2,rc != 0) << "deallocate ctx error: " << strerror(errno);
     }
   }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstring>
+#include <memory>
 
 #include "../nic.hh"
 #include "./config.hh"
@@ -9,6 +10,7 @@ namespace rdmaio {
 
 namespace rmem {
 
+// TODO: change this to shared ptr
 using RawMem = std::pair<char *, u64>; // pointer, payload
 
 /*!
@@ -28,27 +30,32 @@ struct __attribute__((packed)) RegAttr {
 
   Example:
   `
-  RNic nic(...);
+  std::shared_ptr<RNic> nic = std::makr_shared<RNic>(...);
   char *buffer = malloc(1024);
   RegHandler reg(std::make_pair(buffer,1024),rnic);
   Option<RegAttr> attr = reg.get_reg_attr();
   `
  */
 class RegHandler {
+
   RawMem raw_mem;
   ibv_mr *mr = nullptr; // mr in the driver
 
-public:
-  RegHandler(const RawMem &mem, const RNic &rnic,
-             const MemoryFlags &flags = MemoryFlags())
-      : raw_mem(mem) {
+  // a dummy reference to RNic, so that once the rnic is destoried otherwise,
+  // its internal ib context is not destoried
+  std::shared_ptr<RNic> rnic;
 
-    if (rnic.ready()) {
+public:
+  RegHandler(const RawMem &mem, const std::shared_ptr<RNic> &nic,
+             const MemoryFlags &flags = MemoryFlags())
+      : raw_mem(mem), rnic(nic) {
+
+    if (rnic->ready()) {
 
       void *raw_ptr = (void *)(std::get<0>(raw_mem));
-      u64   raw_sz  = std::get<1>(raw_mem);
+      u64 raw_sz = std::get<1>(raw_mem);
 
-      mr = ibv_reg_mr(rnic.get_pd(), raw_ptr,raw_sz,flags.get_value());
+      mr = ibv_reg_mr(rnic->get_pd(), raw_ptr, raw_sz, flags.get_value());
 
       if (!valid()) {
         RDMA_LOG(4) << "register mr failed at addr: (" << raw_ptr << ","

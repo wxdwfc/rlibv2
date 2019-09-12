@@ -12,7 +12,7 @@ TEST(RMEM, can_reg) {
   auto res = RNicInfo::query_dev_names();
   ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
 
-  RNic nic(res[0]);
+  std::shared_ptr<RNic>  nic = std::make_shared<RNic>(res[0]);
   {
     char *buffer = (char *)malloc(1024);
     ASSERT_NE(buffer, nullptr);
@@ -32,7 +32,7 @@ TEST(RMEM, factory) {
   ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
 
   RegFactory factory;
-  RNic nic(res[0]);
+  std::shared_ptr<RNic>  nic = std::make_shared<RNic>(res[0]);
   {
     char *buffer = (char *)malloc(1024);
     ASSERT_NE(buffer, nullptr);
@@ -57,6 +57,18 @@ TEST(RMEM, factory) {
 
     delete buffer;
   }
+}
+
+TEST(RMEM,Err) {
+#if 0
+  // an example to show the error case of not using shared_ptr
+  auto res = RNicInfo::query_dev_names();
+  RNic nic(res[0]);
+  char *buffer = new char[1024];
+  auto mr = ibv_reg_mr(nic.get_pd(), buffer, 1024, MemoryFlags().get_value());
+  ASSERT_NE(mr,nullptr);
+  delete buffer;
+#endif
 }
 
 } // namespace test
