@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../core/qps/mod.hh"
+#include "./fast_random.hh"
 
 namespace test {
 

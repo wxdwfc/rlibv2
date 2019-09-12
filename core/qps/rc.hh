@@ -6,6 +6,8 @@
 
 namespace rdmaio {
 
+using namespace rmem;
+
 namespace qp {
 
 class RC : public Dummy {

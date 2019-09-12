@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../common.hh"
+#include "../naming.hh"
 
 namespace rdmaio {
 
@@ -8,10 +9,11 @@ namespace qp {
 
 class Dummy {
 public:
-  bool valid() const { return qp_ != nullptr && cq_ != nullptr; }
   struct ibv_qp *qp_ = nullptr;
   struct ibv_cq *cq_ = nullptr;
   struct ibv_cq *recv_cq_ = nullptr;
+
+  bool valid() const { return qp_ != nullptr && cq_ != nullptr; }
 };
 
 /*!

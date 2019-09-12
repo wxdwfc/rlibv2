@@ -97,8 +97,8 @@ private:
 
   int qkey = DEFAULT_QKEY;
 
-  friend class RCQP;
-  friend class UDQP;
+  friend class RC;
+  friend class UD;
 }; // class QPConfig
 
 } // namespace qp
