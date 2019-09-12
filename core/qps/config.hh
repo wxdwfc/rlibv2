@@ -1,22 +1,23 @@
 #pragma once
 
-#include "common.hpp"
-
 #include <string>
+
+#include "../common.hh"
 
 namespace rdmaio {
 
-const uint32_t DEFAULT_QKEY     = 0x111111;
-const uint32_t DEFAULT_PSN      = 3185;
-const uint32_t RC_MAX_SEND_SIZE = 128;
-const uint32_t RC_MAX_RECV_SIZE = 2048;
+namespace qp {
 
-class RCQP;
-class UDQP;
-class QPUtily;
+const u32 DEFAULT_QKEY = 0x111111;
+const u32 DEFAULT_PSN = 3185;
+const u32 RC_MAX_SEND_SIZE = 128;
+const u32 RC_MAX_RECV_SIZE = 2048;
+
+class RC;
+class UD;
 
 class QPConfig {
- public:
+public:
   QPConfig() = default;
 
   QPConfig &set_access_flags(int flags) {
@@ -24,9 +25,7 @@ class QPConfig {
     return *this;
   }
 
-  QPConfig &clear_access_flags() {
-    return set_access_flags(0);
-  }
+  QPConfig &clear_access_flags() { return set_access_flags(0); }
 
   QPConfig &set_max_rd_ops(int max_rd) {
     max_rd_atomic = (max_dest_rd_atomic = max_rd);
@@ -74,32 +73,34 @@ class QPConfig {
 
   std::string desc_access_flags() const {
     std::string res = "The access flags of this qp: [ ";
-    if(access_flags & IBV_ACCESS_REMOTE_WRITE)
+    if (access_flags & IBV_ACCESS_REMOTE_WRITE)
       res.append("remote write,");
-    if(access_flags & IBV_ACCESS_REMOTE_READ)
+    if (access_flags & IBV_ACCESS_REMOTE_READ)
       res.append("remote read,");
-    if(access_flags & IBV_ACCESS_REMOTE_ATOMIC)
+    if (access_flags & IBV_ACCESS_REMOTE_ATOMIC)
       res.append("remote atomic ]");
     else
       res.append("]");
     return res;
   }
 
- private:
-  int access_flags  = (IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_ATOMIC);
-  int max_rd_atomic      = 16;
+private:
+  int access_flags = (IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ |
+                      IBV_ACCESS_REMOTE_ATOMIC);
+  int max_rd_atomic = 16;
   int max_dest_rd_atomic = 16;
-  int rq_psn             = DEFAULT_PSN;
-  int sq_psn             = DEFAULT_PSN;
-  int timeout            = 20;
-  int max_send_size      = RC_MAX_SEND_SIZE;
-  int max_recv_size      = RC_MAX_RECV_SIZE;
+  int rq_psn = DEFAULT_PSN;
+  int sq_psn = DEFAULT_PSN;
+  int timeout = 20;
+  int max_send_size = RC_MAX_SEND_SIZE;
+  int max_recv_size = RC_MAX_RECV_SIZE;
 
-  int qkey               = DEFAULT_QKEY;
+  int qkey = DEFAULT_QKEY;
 
   friend class RCQP;
   friend class UDQP;
-  friend class QPUtily;
 }; // class QPConfig
+
+} // namespace qp
 
 } // end namespace rdmaio

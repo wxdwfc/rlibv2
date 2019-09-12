@@ -2,17 +2,17 @@
 
 #include <exception>
 
-#include "simple_rpc.hpp"
+#include "./proto.hh"
 
 namespace rdmaio {
-class RdmaCtrl;
+
 class RPCFactory
 {
   /*!
   A simple RPC function:
-  handle(const Buf_t &req) -> Buf_t
+  handle(const ByteBuffer &req) -> ByteBuffer
    */
-  using req_handler_f = std::function<Buf_t(const Buf_t& req)>;
+  using req_handler_f = std::function<ByteBuffer(const ByteBuffer& req)>;
   std::map<int, req_handler_f> registered_handlers;
 
 public:
@@ -24,22 +24,16 @@ public:
     }
     return false;
   }
-  static Buf_t null_reply()
-  {
-    ReplyHeader_ reply;
-    reply.total_replies = 0;
-    return Marshal::serialize_to_buf(reply);
-  }
 
-  Buf_t handle_one(int socket)
+  ByteBuffer handle_one(int socket)
   {
-    Buf_t buf = Marshal::get_buffer(4096);
+    ByteBuffer buf = Marshal::get_buffer(4096);
     auto n = recv(socket, (char*)(buf.data()), 4096, 0);
     if (n < sizeof(ReqHeader)) {
       return null_reply();
     }
     ReqHeader header = Marshal::deserialize<ReqHeader>(buf);
-    Buf_t reply = Marshal::get_buffer(sizeof(ReplyHeader_));
+    ByteBuffer reply = Marshal::get_buffer(sizeof(ReplyHeader_));
 
     RDMA_ASSERT(header.total_reqs <= ReqHeader::max_batch_sz)
       << "get total reqs: " << (int)header.total_reqs;
@@ -68,7 +62,6 @@ public:
 
     return reply;
   }
-  friend class RdmaCtrl;
-}; // namespace rdmaio
+};
 
 } // namespace rdmaio
