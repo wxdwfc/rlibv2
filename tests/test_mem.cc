@@ -12,18 +12,21 @@ TEST(RMEM, can_reg) {
   auto res = RNicInfo::query_dev_names();
   ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
 
-  std::shared_ptr<RNic>  nic = std::make_shared<RNic>(res[0]);
+  Arc<RNic> nic = Arc<RNic>(new RNic(res[0]));
   {
-    char *buffer = (char *)malloc(1024);
-    ASSERT_NE(buffer, nullptr);
+    auto mem = Arc<RMem>(new RMem(1024));
+    ASSERT_TRUE(mem->valid());
 
-    RegHandler handler(std::make_pair(buffer, 1024), nic);
+    RegHandler handler(mem, nic);
     ASSERT_TRUE(handler.valid());
     ASSERT_TRUE(handler.get_reg_attr());
 
-    RegHandler handler_not_valid(std::make_pair((char *)0, 1024), nic);
+    auto mem_not_valid = Arc<RMem>(new RMem(
+        1024, [](u64 sz) { return nullptr; }, [](RMem::raw_ptr_t p) {}));
+    ASSERT_FALSE(mem_not_valid->valid());
+
+    RegHandler handler_not_valid(mem_not_valid, nic);
     ASSERT_FALSE(handler_not_valid.valid());
-    delete buffer;
   }
 }
 
@@ -32,12 +35,10 @@ TEST(RMEM, factory) {
   ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
 
   RegFactory factory;
-  std::shared_ptr<RNic>  nic = std::make_shared<RNic>(res[0]);
+  Arc<RNic> nic = Arc<RNic>(new RNic(res[0]));
   {
-    char *buffer = (char *)malloc(1024);
-    ASSERT_NE(buffer, nullptr);
-
-    auto mr = std::make_shared<RegHandler>(std::make_pair(buffer, 1024), nic);
+    auto mr =
+        Arc<RegHandler>(new RegHandler(Arc<RMem>(new RMem(1024)), nic));
     auto res = factory.register_mr(73, mr);
     ASSERT_EQ(res.code.c, IOCode::Ok);
 
@@ -47,21 +48,23 @@ TEST(RMEM, factory) {
     ASSERT_EQ(res1.desc.value(), 73);
 
     // test that an invalid MR should not be registered
+    auto mem_not_valid = Arc<RMem>(new RMem(
+        1024, [](u64 sz) { return nullptr; }, [](RMem::raw_ptr_t p) {}));
+    ASSERT_FALSE(mem_not_valid->valid());
+
     auto mr1 =
-        std::make_shared<RegHandler>(std::make_pair((char *)0, 1024), nic);
+        Arc<RegHandler>(new RegHandler(mem_not_valid, nic));
     auto res2 = factory.register_mr(12, mr1);
     ASSERT_EQ(res2.code.c, IOCode::Err);
     if (res2.desc) {
       ASSERT_TRUE(false); // should not go in there
     }
-
-    delete buffer;
   }
 }
 
-TEST(RMEM,Err) {
+TEST(RMEM, Err) {
 #if 0
-  // an example to show the error case of not using shared_ptr
+  // an example to show the error case of not using Arc
   auto res = RNicInfo::query_dev_names();
   RNic nic(res[0]);
   char *buffer = new char[1024];

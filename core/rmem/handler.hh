@@ -5,13 +5,11 @@
 
 #include "../nic.hh"
 #include "./config.hh"
+#include "./mem.hh"
 
 namespace rdmaio {
 
 namespace rmem {
-
-// TODO: change this to shared ptr
-using RawMem = std::pair<char *, u64>; // pointer, payload
 
 /*!
   The attr that exchanged between nodes.
@@ -30,30 +28,33 @@ struct __attribute__((packed)) RegAttr {
 
   Example:
   `
-  std::shared_ptr<RNic> nic = std::makr_shared<RNic>(...);
-  char *buffer = malloc(1024);
-  RegHandler reg(std::make_pair(buffer,1024),rnic);
+  std::Arc<RNic> nic = std::makr_shared<RNic>(...);
+  auto mem = Arc<RMem>(1024);
+  RegHandler reg(mem,rnic);
   Option<RegAttr> attr = reg.get_reg_attr();
   `
  */
 class RegHandler {
 
-  RawMem raw_mem;
   ibv_mr *mr = nullptr; // mr in the driver
 
   // a dummy reference to RNic, so that once the rnic is destoried otherwise,
   // its internal ib context is not destoried
-  std::shared_ptr<RNic> rnic;
+  Arc<RNic> rnic;
+
+  // record the <ptr,size> of the registered memory
+  // the internal buffer will be dealloced when RMem is destoried
+  Arc<RMem>   rmem;
 
 public:
-  RegHandler(const RawMem &mem, const std::shared_ptr<RNic> &nic,
+  RegHandler(const Arc<RMem> &mem, const Arc<RNic> &nic,
              const MemoryFlags &flags = MemoryFlags())
-      : raw_mem(mem), rnic(nic) {
+      : rmem(mem), rnic(nic) {
 
     if (rnic->ready()) {
 
-      void *raw_ptr = (void *)(std::get<0>(raw_mem));
-      u64 raw_sz = std::get<1>(raw_mem);
+      auto raw_ptr = rmem->raw_ptr;
+      auto raw_sz = rmem->sz;
 
       mr = ibv_reg_mr(rnic->get_pd(), raw_ptr, raw_sz, flags.get_value());
 
@@ -71,8 +72,8 @@ public:
   Option<RegAttr> get_reg_attr() const {
     if (!valid())
       return {};
-    return Option<RegAttr>({.buf = (uintptr_t)(std::get<0>(raw_mem)),
-                            .sz = static_cast<u64>(std::get<1>(raw_mem)),
+    return Option<RegAttr>({.buf = (uintptr_t)(rmem->raw_ptr),
+                            .sz = rmem->sz,
                             .key = mr->rkey});
   }
 
