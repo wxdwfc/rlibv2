@@ -47,6 +47,10 @@ public:
     return *this;
   }
 
+  int max_send_sz() const {
+    return max_send_size;
+  }
+
   QPConfig &set_max_recv(int num) {
     max_recv_size = num;
     return *this;

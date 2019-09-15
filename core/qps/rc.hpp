@@ -26,8 +26,8 @@ struct Progress {
   u16 pending_reqs() const {
     if (high_watermark >= low_watermark)
       return high_watermark - low_watermark;
-    return std::numeric_limits<u16>::max() -
-           (low_watermark - high_watermark) + 1;
+    return std::numeric_limits<u16>::max() - (low_watermark - high_watermark) +
+           1;
   }
 };
 

@@ -9,11 +9,25 @@ namespace qp {
 
 class Dummy {
 public:
-  struct ibv_qp *qp_ = nullptr;
-  struct ibv_cq *cq_ = nullptr;
-  struct ibv_cq *recv_cq_ = nullptr;
+  struct ibv_qp *qp = nullptr;
+  struct ibv_cq *cq = nullptr;
+  struct ibv_cq *recv_cq = nullptr;
 
-  bool valid() const { return qp_ != nullptr && cq_ != nullptr; }
+  bool valid() const { return qp != nullptr && cq != nullptr; }
+
+  /**
+   * return whether qp is in {INIT,READ_TO_RECV,READY_TO_SEND} states
+   */
+  Result<ibv_qp_state> qp_status() const {
+    if (!valid()) {
+      return Err(IBV_QPS_RTS); // note it is just a dummy value, because there
+                               // is already an error
+    }
+    struct ibv_qp_attr attr;
+    struct ibv_qp_init_attr init_attr;
+    RDMA_ASSERT(ibv_query_qp(qp, &attr, IBV_QP_STATE, &init_attr) == 0);
+    return Ok(attr.qp_state);
+  }
 };
 
 /*!
