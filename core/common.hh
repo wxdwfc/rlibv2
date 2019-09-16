@@ -92,9 +92,6 @@ using usize = unsigned int;
 
 // some handy alias for smart pointers
 template <typename T>
-using Rc = std::unique_ptr<T>;
-
-template <typename T>
 using Arc = std::shared_ptr<T>;
 
 #define DISABLE_COPY_AND_ASSIGN(classname)                                     \
