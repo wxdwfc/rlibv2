@@ -32,9 +32,6 @@ class RC : public Dummy {
   // default remote MR used by this QP
   Option<RegAttr> remote_mr;
 
-  // connect info used by others
-  QPAttr my_attr;
-
   // pending requests monitor
   Progress progress;
 
@@ -70,11 +67,15 @@ class RC : public Dummy {
     auto res_qp = Impl::create_qp(nic,IBV_QPT_RC,my_config,this->cq,this->recv_cq);
     if(res_qp != IOCode::Ok) {
       RDMA_LOG(4) << "Error on creating QP: " << std::get<1>(res.desc);
+      return;
     }
     this->qp = std::get<0>(res_qp.desc);
 
     // 3 -> init
-    // TODO
+    auto res_init = Impl::bring_qp_to_init(this->qp, this->my_config,this->nic);
+    if(res_init != IOCode::Ok) {
+      RDMA_LOG(4) << "failed to bring QP to init: " << res_init.desc;
+    }
   }
 
  public:
@@ -84,6 +85,17 @@ class RC : public Dummy {
       return Option<Arc<RC>>(std::move(res));
     }
     return {};
+  }
+
+  QPAttr my_attr() const {
+    return {
+      .addr = nic->addr.value(),
+      .lid  = nic->lid.value(),
+      .psn  = my_config.rq_psn,
+      .port_id = nic->id.port_id,
+      .qpn = qp->qp_num,
+      .qkey = 0
+    };
   }
 
   /*!
@@ -111,7 +123,7 @@ class RC : public Dummy {
         {
           // first bring QP to ready to recv. note we bring it to ready to init
           // during class's construction.
-          auto res = Impl::bring_rc_to_rcv(qp, my_config, attr, my_attr.port_id);
+          auto res = Impl::bring_rc_to_rcv(qp, my_config, attr, my_attr().port_id);
           if (res.code != IOCode::Ok)
             return res;
           // then we bring it to ready to send.
