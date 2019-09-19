@@ -2,10 +2,13 @@
 
 #include "../common.hh"
 #include "../naming.hh"
+#include "../nic.hh"
 
 namespace rdmaio {
 
 namespace qp {
+
+const usize kMaxInlinSz = 64;
 
 class Dummy {
 public:
@@ -13,8 +16,22 @@ public:
   struct ibv_cq *cq = nullptr;
   struct ibv_cq *recv_cq = nullptr;
 
+  ~Dummy() {
+    // some clean ups
+    if(qp) {
+      int rc = ibv_destroy_qp(qp);
+      RDMA_VERIFY(WARNING, rc == 0)
+          << "Failed to destroy QP " << strerror(errno);
+    }
+  }
+
+  Arc<RNic> nic;
+
+  explicit Dummy(Arc<RNic> nic) : nic(nic) {}
+
   bool valid() const { return qp != nullptr && cq != nullptr; }
 
+  // below handy helper functions for common QP operations
   /**
    * return whether qp is in {INIT,READ_TO_RECV,READY_TO_SEND} states
    */
@@ -28,6 +45,7 @@ public:
     RDMA_ASSERT(ibv_query_qp(qp, &attr, IBV_QP_STATE, &init_attr) == 0);
     return Ok(attr.qp_state);
   }
+
 };
 
 /*!
@@ -43,25 +61,25 @@ struct __attribute__((packed)) QPAttr {
   u64 qkey;
 };
 
-using progress_type = u16;
+using ProgressMark_t = u16;
 // Track the out-going and acknowledged reqs
 struct Progress {
-  static constexpr const u32 num_progress_bits = sizeof(progress_type) * 8;
+  static constexpr const u32 num_progress_bits = sizeof(ProgressMark_t) * 8;
 
-  progress_type high_watermark = 0;
-  progress_type low_watermark = 0;
+  ProgressMark_t high_watermark = 0;
+  ProgressMark_t low_watermark = 0;
 
-  progress_type forward(progress_type num) {
+  ProgressMark_t forward(ProgressMark_t num) {
     high_watermark += num;
     return high_watermark;
   }
 
   void done(int num) { low_watermark = num; }
 
-  progress_type pending_reqs() const {
+  ProgressMark_t pending_reqs() const {
     if (high_watermark >= low_watermark)
       return high_watermark - low_watermark;
-    return std::numeric_limits<progress_type>::max() -
+    return std::numeric_limits<ProgressMark_t>::max() -
            (low_watermark - high_watermark) + 1;
   }
 };

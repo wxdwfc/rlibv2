@@ -8,13 +8,14 @@ namespace rdmaio {
 
 namespace qp {
 
-const u32 DEFAULT_QKEY = 0x111111;
-const u32 DEFAULT_PSN = 3185;
-const u32 RC_MAX_SEND_SIZE = 128;
-const u32 RC_MAX_RECV_SIZE = 2048;
+const u32 kDefaultQKey = 0x111111;
+const u32 kDefaultPSN = 3185;
+const u32 kRcMaxSendSz = 128;
+const u32 kRcMaxRecvSz = 2048;
 
 class RC;
 class UD;
+class Impl;
 
 class QPConfig {
 public:
@@ -56,6 +57,10 @@ public:
     return *this;
   }
 
+  int max_recv_sz() const {
+    return max_recv_size;
+  }
+
   QPConfig &add_access_write() {
     access_flags |= IBV_ACCESS_REMOTE_WRITE;
     return *this;
@@ -93,16 +98,17 @@ private:
                       IBV_ACCESS_REMOTE_ATOMIC);
   int max_rd_atomic = 16;
   int max_dest_rd_atomic = 16;
-  int rq_psn = DEFAULT_PSN;
-  int sq_psn = DEFAULT_PSN;
+  int rq_psn = kDefaultPSN;
+  int sq_psn = kDefaultPSN;
   int timeout = 20;
-  int max_send_size = RC_MAX_SEND_SIZE;
-  int max_recv_size = RC_MAX_RECV_SIZE;
+  int max_send_size = kRcMaxSendSz;
+  int max_recv_size = kRcMaxRecvSz;
 
-  int qkey = DEFAULT_QKEY;
+  int qkey = kDefaultQKey;
 
   friend class RC;
   friend class UD;
+  friend class Impl;
 }; // class QPConfig
 
 } // namespace qp

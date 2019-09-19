@@ -28,7 +28,7 @@ public:
 
     for (uint i = 0; i < num_devices; ++i) {
       RNic rnic({.dev_id = i, .port_id = 73 /* a dummy value*/});
-      if (rnic.ready()) {
+      if (rnic.valid()) {
         ibv_device_attr attr;
         auto rc = ibv_query_device(rnic.get_ctx(), &attr);
 

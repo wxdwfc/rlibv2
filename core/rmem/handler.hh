@@ -51,7 +51,7 @@ public:
              const MemoryFlags &flags = MemoryFlags())
       : rmem(mem), rnic(nic) {
 
-    if (rnic->ready()) {
+    if (rnic->valid()) {
 
       auto raw_ptr = rmem->raw_ptr;
       auto raw_sz = rmem->sz;

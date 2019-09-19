@@ -1,8 +1,9 @@
 #pragma once
 
 #include "../rmem/handler.hh"
-#include "./config.hh"
 #include "./mod.hh"
+
+#include "./impl.hh"
 
 namespace rdmaio {
 
@@ -12,7 +13,7 @@ namespace qp {
 
 /*!
   To use:
-  Arc<RC> rc = ...;
+  Arc<RC> rc = RC::create(...).value();
   class Class_use_rc {
   Arc<RC> rc;
 
@@ -37,11 +38,52 @@ class RC : public Dummy {
   // pending requests monitor
   Progress progress;
 
- public:
   const QPConfig my_config;
 
-  explicit RC(const QPConfig &config = QPConfig()) : my_config(config) {
-    RDMA_LOG(2) << "rc init called";
+  /* the only constructor
+     make it private because it may failed to create
+     use the factory method to create it:
+     Option<Arc<RC>> qp = RC::create(nic,config);
+     if(qp) {
+     ...
+     }
+  */
+  RC(Arc<RNic> nic, const QPConfig &config)
+      : Dummy(nic), my_config(config) {
+    /*
+      It takes 3 steps to create an RC QP during the initialization
+      according to the RDMA programming mannal.
+      First, we create the cq for completions of send request.
+      Then, we create the qp.
+      Finally, we change the qp to read_to_init status.
+     */
+    // 1 cq
+    auto res = Impl::create_cq(nic,my_config.max_send_sz());
+    if(res != IOCode::Ok) {
+      RDMA_LOG(4) << "Error on creating CQ: " << std::get<1>(res.desc);
+      return;
+    }
+    this->cq = std::get<0>(res.desc);
+    RDMA_LOG(2) << "return";
+
+    // 2 qp
+    auto res_qp = Impl::create_qp(nic,IBV_QPT_RC,my_config,this->cq,this->recv_cq);
+    if(res_qp != IOCode::Ok) {
+      RDMA_LOG(4) << "Error on creating QP: " << std::get<1>(res.desc);
+    }
+    this->qp = std::get<0>(res_qp.desc);
+
+    // 3 -> init
+    // TODO
+  }
+
+ public:
+  static Option<Arc<RC>> create(Arc<RNic> nic, const QPConfig &config = QPConfig()) {
+    auto res = Arc<RC>(new RC(nic,config));
+    if(res->valid()) {
+      return Option<Arc<RC>>(std::move(res));
+    }
+    return {};
   }
 
   /*!
@@ -69,11 +111,11 @@ class RC : public Dummy {
         {
           // first bring QP to ready to recv. note we bring it to ready to init
           // during class's construction.
-          auto res = bring_rc_to_rcv(qp, my_config, attr, my_attr.port_id);
+          auto res = Impl::bring_rc_to_rcv(qp, my_config, attr, my_attr.port_id);
           if (res.code != IOCode::Ok)
             return res;
           // then we bring it to ready to send.
-          res = bring_rc_to_send(qp, my_config);
+          res = Impl::bring_rc_to_send(qp, my_config);
           if (res.code != IOCode::Ok)
             return res;
         }
@@ -145,60 +187,6 @@ class RC : public Dummy {
   }
 
   int max_send_sz() const { return my_config.max_send_size; }
-
-private:
-  // helper functions
-  static Result<std::string> bring_rc_to_rcv(ibv_qp *qp, const QPConfig &config,
-                                             const QPAttr &attr, int port_id) {
-    struct ibv_qp_attr qp_attr = {};
-    qp_attr.qp_state = IBV_QPS_RTR;
-    qp_attr.path_mtu = IBV_MTU_4096;
-    qp_attr.dest_qp_num = attr.qpn;
-    qp_attr.rq_psn = config.rq_psn; // should this match the sender's psn ?
-    qp_attr.max_dest_rd_atomic = config.max_dest_rd_atomic;
-    qp_attr.min_rnr_timer = 20;
-
-    qp_attr.ah_attr.dlid = attr.lid;
-    qp_attr.ah_attr.sl = 0;
-    qp_attr.ah_attr.src_path_bits = 0;
-    qp_attr.ah_attr.port_num = port_id; /* Local port id! */
-
-    qp_attr.ah_attr.is_global = 1;
-    qp_attr.ah_attr.grh.dgid.global.subnet_prefix = attr.addr.subnet_prefix;
-    qp_attr.ah_attr.grh.dgid.global.interface_id = attr.addr.interface_id;
-    qp_attr.ah_attr.grh.sgid_index = 0;
-    qp_attr.ah_attr.grh.flow_label = 0;
-    qp_attr.ah_attr.grh.hop_limit = 255;
-
-    int flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN |
-                IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC |
-                IBV_QP_MIN_RNR_TIMER;
-    auto rc = ibv_modify_qp(qp, &qp_attr, flags);
-    if (rc != 0)
-      return Err(std::string(strerror(errno)));
-    return Ok(std::string(""));
-  }
-
-  static Result<std::string> bring_rc_to_send(ibv_qp *qp,
-                                              const QPConfig &config) {
-    int rc, flags;
-    struct ibv_qp_attr qp_attr = {};
-
-    qp_attr.qp_state = IBV_QPS_RTS;
-    qp_attr.sq_psn = config.sq_psn;
-    qp_attr.timeout = config.timeout;
-    qp_attr.retry_cnt = 7;
-    qp_attr.rnr_retry = 7;
-    qp_attr.max_rd_atomic = config.max_rd_atomic;
-    qp_attr.max_dest_rd_atomic = config.max_dest_rd_atomic;
-
-    flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT |
-            IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
-    rc = ibv_modify_qp(qp, &qp_attr, flags);
-    if (rc != 0)
-      return Err(std::string(strerror(errno)));
-    return Ok(std::string(""));
-  }
 };
 
 } // namespace qp

@@ -54,9 +54,13 @@ struct __attribute__((packed)) DummyDesc {
   The abstract result of IO request, with a code and detailed descrption if
   error happens.
 */
-template <typename Desc = DummyDesc> struct __attribute__((packed)) Result {
+template <typename Desc = DummyDesc> struct Result {
   IOCode code;
   Desc desc;
+
+  inline bool operator==(const IOCode::Code &c) { return code.c == c; }
+
+  inline bool operator!=(const IOCode::Code &c) { return code.c != c; }
 };
 
 /*!

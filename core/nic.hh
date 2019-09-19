@@ -28,14 +28,16 @@ public:
 
   /*!
     Open a nic handler (ibv_ctx,protection domain(pd),
-    if success, ready() should return true.
+    if success, valid() should return true.
     Otherwise, should print the error to the screen, or panic.
    */
   RNic(const DevIdx &idx, u8 gid = 0)
       : id(idx), ctx(open_device(idx)), pd(alloc_pd()), lid(fetch_lid(idx)),
-        addr(query_addr(gid)) {}
+        addr(query_addr(gid)) {
+    //
+  }
 
-  bool ready() const { return (ctx != nullptr) && (pd != nullptr); }
+  bool valid() const { return (ctx != nullptr) && (pd != nullptr); }
 
   struct ibv_context *get_ctx() const {
     return ctx;
@@ -95,7 +97,7 @@ private:
   }
 
   Option<u64> fetch_lid(const DevIdx &idx) {
-    if (!ready()) {
+    if (!valid()) {
       return {};
     } else {
       ibv_port_attr port_attr;
@@ -108,7 +110,7 @@ private:
 
   Option<RAddress> query_addr(u8 gid_index = 0) const {
 
-    if (!ready())
+    if (!valid())
       return {};
 
     ibv_gid gid;
