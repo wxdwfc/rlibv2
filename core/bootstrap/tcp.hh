@@ -9,6 +9,7 @@
 #include <map>
 
 #include "../common.hh"
+#include "./timer.hh"
 
 namespace rdmaio {
 
@@ -101,8 +102,8 @@ public:
    */
   static Result<std::pair<int, std::string>>
   get_send_socket(const std::string &addr, int port,
-                  double timeout) {
-    int sockfd;
+                  const double &timeout = Timer::no_timeout()) {
+    int sockfd = -1;
     struct sockaddr_in serv_addr;
 
     RDMA_ASSERT((sockfd = socket(AF_INET, SOCK_STREAM, 0)) >= 0)
@@ -126,7 +127,7 @@ public:
         goto PROGRESS;
       }
       close(sockfd);
-      return Err(std::make_pair(errno,std::string(strerror(errno))));
+      return Err(std::make_pair(-1,std::string(strerror(errno))));
     }
   PROGRESS:
     // check return status
@@ -141,14 +142,19 @@ public:
 
       getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
 
-      if (so_error == 0) {
-        // success
-      } else {
-        close(sockfd);
-        return Err(std::make_pair(errno,std::string(strerror(errno))));
-      }
-    }
+      if(FD_ISSET(sockfd,&fdset))
+        goto ConnectOk;
 
+      if (so_error != 0) {
+        close(sockfd);
+        return Err(std::make_pair(-1,std::string(strerror(errno))));
+      }
+    } else {
+      // timeout case
+      close(sockfd);
+      return Timeout(std::make_pair(-1,std::string("")));
+    }
+ ConnectOk:
     return Ok(std::make_pair(sockfd,std::string("")));
   }
 
@@ -160,7 +166,7 @@ public:
       FD_ZERO(&rfds);
       FD_SET(socket, &rfds);
 
-      struct timeval tv = {.tv_sec = 0, .tv_usec = timeout};
+      struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(timeout)};
       int ready = select(socket + 1, &rfds, nullptr, nullptr, &tv);
 
       if (ready == 0) { // no file descriptor found
