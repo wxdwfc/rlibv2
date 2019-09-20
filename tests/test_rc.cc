@@ -51,7 +51,8 @@ TEST(RRC, basic) {
                                 .imm_data = 0
                               });
   RDMA_ASSERT(res_s == IOCode::Ok);
-  sleep(1);
+  auto res_p = qp.wait_one_comp();
+  RDMA_ASSERT(res_p == IOCode::Ok);
   ASSERT_EQ(test_loc[1],73);
 }
 

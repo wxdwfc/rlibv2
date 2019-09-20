@@ -6,6 +6,17 @@
 namespace rdmaio {
 
 /*!
+  The return RPC error codes
+ */
+enum RpcErrCode {
+  None,
+  SendErr,       // fail to send the entire message
+  ErrRecv,       // receive a wrong number of replies
+  ReplyNotMatch, // the number of replies donot match the expected reply sz
+  ParseFailure,  // fail to parse from the receive
+};
+
+/*!
     This is a very simple RPC upon socket.
     It is aim to handle bootstrap control path operation,
     so its performance is very slow.
@@ -21,7 +32,7 @@ namespace rdmaio {
 
         sr.emplace(REQ,"Hello",&reply);
         auto ret = sr.execute();
-        if(ret.code = Ok) {
+        if(ret == IOCode::Ok) {
             break;
         }
     } while(true);
@@ -36,8 +47,12 @@ class SimpleRPC {
   std::vector<Req> reqs;
 
 public:
-  SimpleRPC(const std::string &addr, int port)
-      : socket(SimpleTCP::get_send_socket(addr, port)) {}
+  SimpleRPC(const std::string &addr, int port) {
+    auto res = SimpleTCP::get_send_socket(addr,port);
+    if(res == IOCode::Ok) {
+      socket = std::get<0>(res.desc);
+    }
+  }
 
   /*!
   Emplace a req to the pending request list.
@@ -53,9 +68,9 @@ public:
 
   bool valid() const { return socket >= 0; }
 
-  Result<std::string> execute(usize expected_reply_sz, const double &timeout) {
+  Result<RpcErrCode> execute(usize expected_reply_sz, const double &timeout) {
     if (reqs.empty())
-      return Ok(std::string(""));
+      return Ok(None);
 
     /*
     The code contains two parts.
@@ -82,11 +97,11 @@ public:
                  : "memory");
     auto n = send(socket, (char *)(send_buf.data()), send_buf.size(), 0);
     if (n != send_buf.size()) {
-      return Err(std::string("send size error"));
+      return Err(SendErr);
     }
     // wait for recvs
     if (!SimpleTCP::wait_recv(socket, timeout)) {
-      return Timeout(std::string(""));
+      return Timeout(None);
     }
 
     // 2. the following handles replies
@@ -94,31 +109,31 @@ public:
 
     n = recv(socket, (char *)(reply.data()), reply.size(), MSG_WAITALL);
     if (n < reply.size()) {
-      return Err(std::string("wrong recv sz"));
+      return Err(ErrRecv);
     }
 
     // now we parse the replies to fill the reqs
     const auto &reply_h =
-        *(reinterpret_cast<const ReplyHeader_ *>(reply.data()));
+        *(reinterpret_cast<const ReplyHeader *>(reply.data()));
 
     if (reply_h.total_replies < reqs.size()) {
-      return Err(std::string("wrong recv num"));
+      return Err(ReplyNotMatch);
     }
     usize parsed_replies = 0;
 
     for (uint i = 0; i < reply_h.total_replies; ++i) {
       // sanity check replies size
       if (parsed_replies + reply_h.reply_sizes[i] >
-          reply.size() - sizeof(ReplyHeader_)) {
-        return Err(std::string("wrong recv payload"));
+          reply.size() - sizeof(ReplyHeader)) {
+        return Err(ParseFailure);
       }
       // append the corresponding reply to the buffer
-      reqs[i].second->append(reply.data() + sizeof(ReplyHeader_) +
+      reqs[i].second->append(reply.data() + sizeof(ReplyHeader) +
                                  parsed_replies,
                              reply_h.reply_sizes[i]);
       parsed_replies += reply_h.reply_sizes[i];
     }
-    return Ok(std::string(""));
+    return Ok(None);
   }
 
   ~SimpleRPC() {

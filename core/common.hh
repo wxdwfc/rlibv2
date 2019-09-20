@@ -78,7 +78,7 @@ template <typename D = DummyDesc> inline Result<D> NearOk(const D &d = D()) {
 }
 
 template <typename D = DummyDesc> inline Result<D> Err(const D &d = D()) {
-  return {.code = IOCode(IOCode::Err), .desc = d};
+  return {.code = IOCode(IOCode::Err), .desc = std::move(d)};
 }
 
 template <typename D = DummyDesc> inline Result<D> Timeout(const D &d = D()) {

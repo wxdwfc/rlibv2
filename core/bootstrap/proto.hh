@@ -6,6 +6,7 @@
 namespace rdmaio {
 
 /*!
+  Meta data passed between bootstrap procedures
   Supported max reply/receive size is limited for this SimpleRPC
  */
 using reply_size_t = u16;

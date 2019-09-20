@@ -2,7 +2,6 @@ project (rlib)
 
 cmake_minimum_required(VERSION 2.8)
 
-## use C++11 features
 add_definitions(-std=c++14)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
