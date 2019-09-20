@@ -4,8 +4,10 @@ Refine list:
 - Memory (done)
 - Memory registration + factory (done)
 - QPs
-  - progress (unit tests)
-  - RC
+  - progress (done)
+  - RC (done)
+  - QP poll
+  - QP factory
   - fetch op
 - Simple RPC
   - timeout (done)
