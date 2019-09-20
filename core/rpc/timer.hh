@@ -11,7 +11,9 @@ class Timer {
   std::chrono::time_point<std::chrono::steady_clock> start_time_;
 
 public:
-  static const constexpr double no_timeout = std::numeric_limits<double>::max();
+  static constexpr double no_timeout() {
+    return std::numeric_limits<double>::max();
+  }
 
   Timer(std::chrono::time_point<std::chrono::steady_clock> t =
             std::chrono::steady_clock::now())
