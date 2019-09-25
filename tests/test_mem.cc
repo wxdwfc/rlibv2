@@ -65,6 +65,12 @@ TEST(RMEM, factory) {
       if (res2.desc) {
         ASSERT_TRUE(false); // should not go in there
       }
+
+      // finally, test create and register the MR
+      auto mr3_res = factory.create_and_reg(12,Arc<RMem>(new RMem(1024)),nic);
+      RDMA_ASSERT(mr3_res == IOCode::Ok);
+      auto mr3 = std::move(mr3_res.desc);
+      ASSERT_TRUE(mr3->valid());
     }
   }
 }
