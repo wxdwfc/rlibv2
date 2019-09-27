@@ -26,6 +26,14 @@ public:
   const Option<RAddress> addr;
   const Option<u64> lid;
 
+  static Option<Arc<RNic>> create(const DevIdx &idx, u8 gid = 0) {
+    auto res = std::make_shared<RNic>(idx,gid);
+    if (res->valid()) {
+      return res;
+    }
+    return {};
+  }
+
   /*!
     Open a nic handler (ibv_ctx,protection domain(pd),
     if success, valid() should return true.
@@ -51,11 +59,11 @@ public:
     // pd must he deallocaed before ctx
     if (pd != nullptr) {
       auto rc = ibv_dealloc_pd(pd);
-      RDMA_LOG_IF(2,rc != 0) << "deallocate pd error: " << strerror(errno);
+      RDMA_LOG_IF(2, rc != 0) << "deallocate pd error: " << strerror(errno);
     }
     if (ctx != nullptr) {
       auto rc = ibv_close_device(ctx);
-      RDMA_LOG_IF(2,rc != 0) << "deallocate ctx error: " << strerror(errno);
+      RDMA_LOG_IF(2, rc != 0) << "deallocate ctx error: " << strerror(errno);
     }
   }
 
