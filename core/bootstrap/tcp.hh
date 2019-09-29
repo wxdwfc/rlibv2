@@ -20,24 +20,6 @@ const constexpr double notimeout = static_cast<double>(std::numeric_limits<int>:
  */
 class SimpleTCP {
 public:
-  /*!
-    given a "host:port", return (host,port)
-   */
-  static Option<std::pair<std::string, int>> parse_addr(const std::string &h) {
-    auto pos = h.find(':');
-    if (pos != std::string::npos) {
-      std::string host_str = h.substr(0, pos);
-      std::string port_str = h.substr(pos + 1);
-
-      std::stringstream parser(port_str);
-
-      int port = 0;
-      if (parser >> port) {
-        return std::make_pair(host_str, port);
-      }
-    }
-    return {};
-  }
 
   /*!
     Panic if failed to get one

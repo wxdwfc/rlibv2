@@ -61,7 +61,6 @@ class RC : public Dummy {
       return;
     }
     this->cq = std::get<0>(res.desc);
-    RDMA_LOG(2) << "return";
 
     // 2 qp
     auto res_qp = Impl::create_qp(nic,IBV_QPT_RC,my_config,this->cq,this->recv_cq);
@@ -91,10 +90,10 @@ class RC : public Dummy {
     return {
       .addr = nic->addr.value(),
       .lid  = nic->lid.value(),
-      .psn  = my_config.rq_psn,
-      .port_id = nic->id.port_id,
-      .qpn = qp->qp_num,
-      .qkey = 0
+      .psn  = static_cast<u64>(my_config.rq_psn),
+      .port_id = static_cast<u64>(nic->id.port_id),
+      .qpn = static_cast<u64>(qp->qp_num),
+      .qkey = static_cast<u64>(0)
     };
   }
 

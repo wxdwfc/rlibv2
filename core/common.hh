@@ -67,7 +67,7 @@ template <typename Desc = DummyDesc> struct Result {
   Some wrapper functions for help creating results
   Example:
     auto res = Ok();
-    assert(std::get<0)>(res) == IOCode::Ok);
+    assert(res == IOCode::Ok);
  */
 template <typename D = DummyDesc> inline Result<D> Ok(const D &d = D()) {
   return {.code = IOCode(IOCode::Ok), .desc = d};
