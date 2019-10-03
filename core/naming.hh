@@ -2,9 +2,6 @@
 
 #include <iostream>
 
-// net related
-#include <netdb.h>
-
 #include "./common.hh"
 
 namespace rdmaio {
@@ -35,31 +32,5 @@ struct __attribute__((packed)) RAddress {
   u32 local_id;
 };
 
-class NameHelper {
-public:
-  /*!
-    given a "host:port", return (host,port)
-   */
-  static Option<std::pair<std::string, int>> parse_addr(const std::string &h) {
-    auto pos = h.find(':');
-    if (pos != std::string::npos) {
-      std::string host_str = h.substr(0, pos);
-      std::string port_str = h.substr(pos + 1);
-
-      std::stringstream parser(port_str);
-
-      int port = 0;
-      if (parser >> port) {
-        return std::make_pair(host_str, port);
-      }
-    }
-    return {};
-  }
-
-  // XD: fixme, do we need a global lock here?
-  static std::string inet_ntoa(struct in_addr addr) {
-    return std::string(inet_ntoa(addr));
-  }
-};
 
 } // namespace rdmaio

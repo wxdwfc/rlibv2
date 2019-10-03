@@ -4,7 +4,7 @@
 #include "../naming.hh"
 #include "../nic.hh"
 
-#include "../rpc/timer.hh"
+#include "../utils/timer.hh"
 
 namespace rdmaio {
 

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../common.hh"
-#include "../naming.hh"
 
 #include "../utils/marshal.hh"
+#include "../utils/ipname.hh"
 
 namespace rdmaio {
 
@@ -25,23 +25,46 @@ const usize kMaxMsgSz = 4096;
  */
 class SendChannel {
   int sock_fd = -1;
-  explicit SendChannel(const std::string &addr) {}
+  explicit SendChannel(const std::string &ip, int port) {}
 
 public:
+  ~SendChannel() { close_channel(); }
+
   /*!
   Create a msg for the remote.
   The address is in the format (ip:port)
  */
   static Option<Arc<SendChannel>> create(const std::string &addr) {
+    auto host_port = IPNameHelper::parse_addr(addr);
+    if (host_port) {
+      auto sc = Arc<SendChannel>(new SendChannel(std::get<0>(host_port.value()),
+                                                 std::get<1>(host_port.value())));
+      if (sc->valid())
+        return sc;
+    }
     return {};
   }
+
+  bool valid() const { return sock_fd >= 0; }
+
   Result<std::string> send(const ByteBuffer &buf) {
     return Ok(std::string(""));
   }
 
+  /*!
+    Recv a reply of on the channel
+   */
   Result<ByteBuffer> recv(usize timeout_ms = 0) {
     ByteBuffer res;
     return Ok(std::move(res));
+  }
+
+  Result<> close_channel() {
+    if (valid()) {
+      close(sock_fd);
+      sock_fd = -1;
+    }
+    return Ok(); // we donot check the result here
   }
 };
 
