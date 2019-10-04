@@ -57,7 +57,7 @@ public:
     // trim the host
     auto trimed_host = host;
     trimed_host.erase(0, trimed_host.find_first_not_of(" "));
-    trimed_host.erase(trimed_host.find_last_not_of(""));
+    trimed_host.erase(trimed_host.find_last_not_of(" ") + 1);
 
     {
       std::lock_guard<std::mutex> guard(lock);
@@ -78,7 +78,7 @@ public:
       memset(&hints, 0, sizeof hints);
       hints.ai_family = AF_INET; // AF_INET means IPv4 only addresses
 
-      if (getaddrinfo(host.c_str(), nullptr, &hints, &infoptr)) {
+      if (getaddrinfo(trimed_host.c_str(), nullptr, &hints, &infoptr)) {
         return Err(std::string(strerror(errno)));
       }
       char ip[64];

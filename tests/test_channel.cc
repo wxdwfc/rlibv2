@@ -15,11 +15,15 @@ TEST(Channel, Naming) {
   auto ip1 = IPNameHelper::host2ip("val02");
   RDMA_ASSERT(ip1 == IOCode::Ok);
   RDMA_LOG(4) << "parsed ip for val02: " << ip1.desc;
+
+  auto ip3 = IPNameHelper::host2ip("  val02  ");
+  RDMA_ASSERT(ip3 == IOCode::Ok)
+      << "get ip3 code: " << ip3.code.name() << " " << ip3.desc;
+  ASSERT_EQ(ip3.desc, ip1.desc);
 }
 
 TEST(Channel, Basic) {
   auto send_c = SendChannel::create("localhost:8888").value();
-
 }
 
 } // namespace test
