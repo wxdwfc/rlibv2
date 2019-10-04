@@ -23,7 +23,23 @@ TEST(Channel, Naming) {
 }
 
 TEST(Channel, Basic) {
+  const usize total_sent = 12;
+
   auto send_c = SendChannel::create("localhost:8888").value();
-}
+  auto recv_c = RecvChannel::create(8888).value();
+
+  for (uint i = 0; i < total_sent; ++i) {
+    auto b = Marshal::dump<u64>(i + 73);
+    send_c->send(b);
+  }
+  sleep(1);
+
+  usize count = 0;
+  for (recv_c->start(); recv_c->has_msg(); recv_c->next(), count += 1) {
+    auto &msg = recv_c->cur();
+    u64 val = Marshal::dedump<u64>(msg).value();
+    ASSERT_EQ(val, count);
+  }
+  ASSERT_EQ(count, total_sent);
 
 } // namespace test

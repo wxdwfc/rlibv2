@@ -21,9 +21,10 @@ TEST(RRC, basic) {
 
   // try send an RDMA request
   // init the memory
-  auto mem = Arc<RMem>(new RMem(1024));
+  auto mem = Arc<RMem>(new RMem(1024)); // allocate a memory with 1K bytes
   ASSERT_TRUE(mem->valid());
 
+  // register it to the Nic
   RegHandler handler(mem, nic);
   ASSERT_TRUE(handler.valid());
 
@@ -33,7 +34,7 @@ TEST(RRC, basic) {
   qp.bind_remote_mr(mr);
   qp.bind_local_mr(mr);
 
-  // finally connect
+  // finally connect to myself
   auto res_c = qp.connect(qp.my_attr());
   RDMA_ASSERT(res_c == IOCode::Ok);
 

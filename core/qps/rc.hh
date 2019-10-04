@@ -1,8 +1,8 @@
 #pragma once
 
 #include "../rmem/handler.hh"
-#include "./mod.hh"
 
+#include "./mod.hh"
 #include "./impl.hh"
 
 namespace rdmaio {
