@@ -30,6 +30,57 @@ protected:
     return Ok(); // we donot check the result here
   }
 
+  template <typename SockAddr>
+  Result<std::string> raw_send(const ByteBuffer &buf, const SockAddr &addr) {
+    RDMA_ASSERT(valid());
+    const struct sockaddr *addr_p =
+        reinterpret_cast<const struct sockaddr *>(&addr);
+    if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM, addr_p,
+               sizeof(addr))) {
+      return Err(std::string(strerror(errno)));
+    }
+    return Ok(std::string(""));
+  }
+
+  /*!
+    \param timeout: timeout in usec
+   */
+  Result<sockaddr> try_recv(ByteBuffer &buf, const double to_usec = 1000) {
+
+    struct sockaddr addr;
+
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(sock_fd, &rfds);
+    struct timeval tv = {.tv_sec = 0,
+                         .tv_usec = static_cast<int>(to_usec)};
+
+    auto ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
+    switch (ready) {
+    case 0:
+      return Timeout(addr);
+    case -1:
+      return Err(addr);
+    default: {
+      if (FD_ISSET(sock_fd, &rfds)) {
+        // now recv the msg
+        usize len = sizeof(addr);
+        auto n =
+            recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
+                                       (struct sockaddr *)(&addr), &len);
+        // we successfully receive one msg
+        if (n >= 0) {
+          return Ok(addr);
+        } else {
+          //RDMA_LOG(4) << "error: " << strerror(errno);
+          return Err(addr);
+        }
+      }
+    }
+    }
+    return Err(addr); // should not return here
+  }
+
 public:
   // It has to be abstract, otherwise shared_ptr cannot deallocate it
   ~AbsChannel() { close_channel(); }
@@ -41,9 +92,10 @@ public:
   An example:
   `
   auto sc = SendChannel::create("xx.xx.xx.xx:xx").value();
-  auto send_res = sc.send("hello");
+  auto send_res = sc->send("hello");
   ASSERT(send_res == IOCode::Ok);
-  auto recv_res = sc.recv(1000); // recv with 1 second timeout
+  // ... wait some time
+  auto recv_res = sc->recv(1000); // recv with 1 second timeout
   ASSERT(recv_res == IOCode::Ok);
   `
  */
@@ -87,19 +139,21 @@ public:
     Send a buffer to this channel using the already connect address `end_addr`
    */
   Result<std::string> send(const ByteBuffer &buf) {
-    if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM,
-               (const struct sockaddr *)&end_addr, sizeof(end_addr))) {
-      return Err(std::string(strerror(errno)));
-    }
-    return Ok(std::string(""));
+    return raw_send(buf, end_addr);
   }
 
   /*!
     Recv a reply of on the channel
    */
-  Result<ByteBuffer> recv(usize timeout_ms = 0) {
-    ByteBuffer res;
-    return Ok(std::move(res));
+  Result<ByteBuffer> recv(const double &timeout_usec = 1000) {
+    ByteBuffer buf(kMaxMsgSz,'\0');
+    auto res = try_recv(buf,timeout_usec);
+    if (res == IOCode::Ok) {
+      return Ok(std::move(buf));
+    }
+    // direct forward the res code to the reply
+    return Result<ByteBuffer>({
+      .code = res.code, .desc = ByteBuffer("")});
   }
 };
 
@@ -157,28 +211,9 @@ public:
     // donot over consume the current msg
     if (has_msg())
       return;
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(sock_fd, &rfds);
-    struct timeval tv = {.tv_sec = 0,
-                         .tv_usec = static_cast<int>(timeout_usec)};
-
-    int ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
-    if (ready >= 0) {
-      if (FD_ISSET(sock_fd, &rfds)) {
-        // now recv the msg
-        struct sockaddr cliaddr;
-        usize len;
-        auto n = recvfrom(sock_fd, (char *)(cur_msg.c_str()), kMaxMsgSz,
-                          MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
-        // we successfully receive one msg
-        if (n >= 0) {
-          cur_msg_client = cliaddr;
-        }
-      }
-    } else {
-      // do we need to filter out error?
-    }
+    auto res = try_recv(cur_msg, timeout_usec);
+    if (res == IOCode::Ok)
+      cur_msg_client = res.desc;
   }
 
   bool has_msg() const {
@@ -201,12 +236,7 @@ public:
   ByteBuffer &cur() { return cur_msg; }
 
   Result<std::string> reply_cur(const ByteBuffer &buf) {
-    if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM,
-               (const struct sockaddr *)&(cur_msg_client.value()),
-               sizeof(sockaddr_in))) {
-      return Err(std::string(strerror(errno)));
-    }
-    return Ok(std::string(""));
+    return raw_send(buf, cur_msg_client.value());
   };
 };
 

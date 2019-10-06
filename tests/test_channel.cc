@@ -41,15 +41,30 @@ TEST(Channel, Basic) {
 
   RDMA_LOG(2) << "send all done";
 
-  sleep(1);
-
   usize count = 0;
   for (recv_c->start(); recv_c->has_msg(); recv_c->next(), count += 1) {
     auto &msg = recv_c->cur();
     u64 val = Marshal::dedump<u64>(msg).value();
     ASSERT_EQ(val, count + 73);
+
+    // now prepare the reply
+    auto reply = Marshal::dump<u64>(count + 75);
+    recv_c->reply_cur(reply);
   }
+
   ASSERT_EQ(count, total_sent);
+
+  RDMA_LOG(2) << "start sanity check replies";
+
+  // finally we check the reply
+  for (uint i = 0; i < total_sent; ++i) {
+    auto reply_res = send_c->recv();
+    RDMA_ASSERT(reply_res == IOCode::Ok);
+    auto &msg = reply_res.desc;
+    u64 val = Marshal::dedump<u64>(msg).value();
+    ASSERT_EQ(val, i + 75);
+  }
+  RDMA_LOG(2) << "check replies done, ok";
 }
 
 } // namespace test
