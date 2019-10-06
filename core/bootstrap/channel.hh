@@ -1,5 +1,8 @@
 #pragma once
 
+#include <arpa/inet.h>
+#include <fcntl.h>
+
 #include "../common.hh"
 
 #include "../utils/ipname.hh"
@@ -45,7 +48,21 @@ public:
   `
  */
 class SendChannel : public AbsChannel {
-  explicit SendChannel(const std::string &ip, int port) {}
+
+  struct sockaddr_in end_addr;
+
+  explicit SendChannel(const std::string &ip, int port)
+      : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)),
+        end_addr({.sin_family = AF_INET,
+                  .sin_port = htons(port),
+                  .sin_addr = {
+                      .s_addr = inet_addr(ip.c_str()),
+                  }}) {
+    if (valid()) {
+      // set as a non-blocking channel
+      fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
+    }
+  }
 
 public:
   /*!
@@ -55,15 +72,25 @@ public:
   static Option<Arc<SendChannel>> create(const std::string &addr) {
     auto host_port = IPNameHelper::parse_addr(addr);
     if (host_port) {
-      auto sc = Arc<SendChannel>(new SendChannel(
-          std::get<0>(host_port.value()), std::get<1>(host_port.value())));
-      if (sc->valid())
-        return sc;
+      auto ip_res = IPNameHelper::host2ip(std::get<0>(host_port.value()));
+      if (ip_res == IOCode::Ok) {
+        auto sc = Arc<SendChannel>(
+            new SendChannel(ip_res.desc, std::get<1>(host_port.value())));
+        if (sc->valid())
+          return sc;
+      }
     }
     return {};
   }
 
+  /*!
+    Send a buffer to this channel using the already connect address `end_addr`
+   */
   Result<std::string> send(const ByteBuffer &buf) {
+    if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM,
+               (const struct sockaddr *)&end_addr, sizeof(end_addr))) {
+      return Err(std::string(strerror(errno)));
+    }
     return Ok(std::string(""));
   }
 
@@ -91,24 +118,67 @@ public:
  */
 class RecvChannel : public AbsChannel {
 
-  Option<int> cur_msg_client = {}; // who sent the current client
+  Option<sockaddr> cur_msg_client = {}; // who sent the current client
   ByteBuffer cur_msg;
 
-  explicit RecvChannel(int port) {
+  explicit RecvChannel(int port)
+      : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)), cur_msg(kMaxMsgSz, '\0') {
+    if (valid()) {
+      // set as a non-blocking channel
+      fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
 
-    // TODO: init the sock_fd with UD
-    // change it to non-blocking
-    // resize cur_msg
+      // bind to this port
+      sockaddr_in my_addr = {.sin_family = AF_INET,
+                             .sin_port = htons(port),
+                             .sin_addr = {.s_addr = INADDR_ANY}};
+      if (bind(this->sock_fd, (const struct sockaddr *)&my_addr,
+               sizeof(my_addr))) {
+        RDMA_LOG(4) << "bind to port: " << port
+                    << " error with error: " << strerror(errno);
+        close_channel();
+      }
+    }
   }
 
 public:
-  static Option<Arc<RecvChannel>> create(int port) { return {}; }
+  static Option<Arc<RecvChannel>> create(int port) {
+    auto rc = Arc<RecvChannel>(new RecvChannel(port));
+    if (rc->valid()) {
+      return rc;
+    }
+    return {};
+  }
 
   /*!
     Try recv a msg;
+    \param timeout: in usec
     */
-  void start() {
-    // todo
+  void start(const double &timeout_usec = 1000) {
+    // donot over consume the current msg
+    if (has_msg())
+      return;
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(sock_fd, &rfds);
+    struct timeval tv = {.tv_sec = 0,
+                         .tv_usec = static_cast<int>(timeout_usec)};
+
+    int ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
+    if (ready >= 0) {
+      if (FD_ISSET(sock_fd, &rfds)) {
+        // now recv the msg
+        struct sockaddr cliaddr;
+        usize len;
+        auto n = recvfrom(sock_fd, (char *)(cur_msg.c_str()), kMaxMsgSz,
+                          MSG_WAITALL, (struct sockaddr *)&cliaddr, &len);
+        // we successfully receive one msg
+        if (n >= 0) {
+          cur_msg_client = cliaddr;
+        }
+      }
+    } else {
+      // do we need to filter out error?
+    }
   }
 
   bool has_msg() const {
@@ -130,8 +200,16 @@ public:
    */
   ByteBuffer &cur() { return cur_msg; }
 
-  Result<std::string> reply_cur(const ByteBuffer &buf){};
+  Result<std::string> reply_cur(const ByteBuffer &buf) {
+    if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM,
+               (const struct sockaddr *)&(cur_msg_client.value()),
+               sizeof(sockaddr_in))) {
+      return Err(std::string(strerror(errno)));
+    }
+    return Ok(std::string(""));
+  };
+};
 
 } // namespace bootstrap
 
-} // namespace bootstrap
+} // namespace rdmaio

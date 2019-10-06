@@ -26,20 +26,30 @@ TEST(Channel, Basic) {
   const usize total_sent = 12;
 
   auto send_c = SendChannel::create("localhost:8888").value();
+  RDMA_LOG(2) << "create send channel done";
+
   auto recv_c = RecvChannel::create(8888).value();
+  RDMA_LOG(2) << "create recv channel done";
+
+  auto recv_c_fail = RecvChannel::create(8888);
+  ASSERT_FALSE(recv_c_fail);
 
   for (uint i = 0; i < total_sent; ++i) {
     auto b = Marshal::dump<u64>(i + 73);
     send_c->send(b);
   }
+
+  RDMA_LOG(2) << "send all done";
+
   sleep(1);
 
   usize count = 0;
   for (recv_c->start(); recv_c->has_msg(); recv_c->next(), count += 1) {
     auto &msg = recv_c->cur();
     u64 val = Marshal::dedump<u64>(msg).value();
-    ASSERT_EQ(val, count);
+    ASSERT_EQ(val, count + 73);
   }
   ASSERT_EQ(count, total_sent);
+}
 
 } // namespace test
