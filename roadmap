@@ -9,10 +9,12 @@ Refine list:
   - QP poll
   - QP factory
   - fetch op
-- Simple RPC
+- Simple bootstrap RPC
   - timeout (done)
   - TCP (done)
   - RPC sender (done)
   - RPC receiver (done)
+  - UDP (done)
+  - connector ()
 - QPs
   - UD

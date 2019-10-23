@@ -25,6 +25,21 @@ namespace qp {
   Class_use_rc cur(rc);
   // to use cur
   }
+
+  // example to send an RC request to remote QP
+  RC &qp = *rc; // some QP
+
+  // read sizeof(u64) to (local_addr) at remote address (remote addr)
+  auto res_s = qp.send_normal({.op = IBV_WR_RDMA_READ,
+                               .flags = IBV_SEND_SIGNALED,
+                               .len = sizeof(u64),
+                               .wr_id = 0},
+                              {
+                                .local_addr =
+                                reinterpret_cast<RMem::raw_ptr_t>(test_loc + 1),
+                                .remote_addr = 0,
+                                .imm_data = 0}
+  );
 */
 class RC : public Dummy {
   // default local MR used by this QP
@@ -86,6 +101,10 @@ class RC : public Dummy {
     return {};
   }
 
+  /*!
+    Get the attribute of this RC QP, so that others can connect to it.
+    \note: this function would panic if the created context (nic) is not valid
+   */
   QPAttr my_attr() const {
     return {
       .addr = nic->addr.value(),
