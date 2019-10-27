@@ -51,6 +51,12 @@ public:
     return false;
   }
 
+  // dump a type with its default constructor
+  template <typename T> static ByteBuffer dump_null() {
+    T t;
+    return dump<T>(t);
+  }
+
   template <typename T> static ByteBuffer dump(const T &t) {
     auto buf = alloc(sizeof(T));
     memcpy((void *)buf.data(), &t, sizeof(T)); // unsafe code

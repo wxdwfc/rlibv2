@@ -11,36 +11,125 @@ namespace rdmaio {
 
 namespace bootstrap {
 
-// max encoded msg per MultBuffer
+/*!
+  MultiMsg ecnodes multiple msgs into one, merged msg.
+
+  \note: MaxMsgSz supported is std::numeric_limits<u16>::max()
+  \note: MAx number of msg supported ius defiend in kMaxmultiMsg
+  ---
+
+  Usage:
+  `
+  MultiMsg<1024> mss; // create a MultioMsg with total 1024-bytes capacity.
+
+  ByteBuffer one_msg = ...;
+  ByteBuffer another_msg = ...;
+
+  assert(mss.append(one_msg)); // false if there is no capacity
+  assert(mss.append(another_msg)); //
+
+  ByteBuffer &total_msg = mss.buf;
+
+  // do something about the total_msg;
+  `
+ */
+
+// max encoded msg per MultiMsg
 const usize kMaxMultiMsg = 8;
 
-struct __attribute__((packed)) MultiEntry {
-  u8 sz = 0;
+struct __attribute__((packed)) MsgEntry {
+  u16 sz = 0;
   u16 offset = 0;
 
-  static usize max_entry_sz() { return std::numeric_limits<u8>::max(); }
+  static usize max_entry_sz() { return std::numeric_limits<u16>::max(); }
 };
 
-struct __attribute__((packed)) MultiHeader {
+struct __attribute__((packed)) MsgsHeader {
   u8 num = 0;
   MultiEntry entries[kMaxMultiMsg];
+
+  bool has_free_entry() const { return num < kMaxMultiMsg; }
+
+  /*!
+    append one msg to the header, return its current offset
+   */
+  bool append_one(u16 sz) {
+    if (!has_free_entry())
+      return false;
+
+    u16 off = 0;
+    if (num != 0) {
+      off = entries[num - 1].off + entries[num - 1].sz;
+    } else {
+      // handles nothing, off should be zero
+    }
+    entries[num++] = {.off = off, .sz = sz};
+    return true;
+  }
+
+  // sanity check that the header content is consistent
+  bool sanity_check(usize sz) const {
+    if (num > kMaxMultiMsg)
+      return false;
+
+    u16 cur_off = 0;
+    for (uint i = 0; i < num; ++i) {
+      if (entries[i].off != cur_off)
+        return false;
+      cur_off += entries[i].sz;
+    }
+    return static_cast<usize>(cur_off) == sz;
+  }
 };
 
 /*!
-  MultiBuffer encodes several ByteBuffer into one single one,
+  MultiMsg encodes several ByteBuffer into one single one,
   and we can decode these buffers separately.
   Note that at most *kMaxMultiMsg* can be encoded.
  */
-struct MultBuffer {
-  MultiHeader *header;
+template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
+  MsgsHeader *header;
   ByteBuffer buf;
 
-  MultBuffer() {
-    buf.reserve(kMaxMsgSz);
+  static_assert(MAXSZ > sizeof(MsgsHeader), "MultiMsg reserved sz too small");
+  MultiMsg() : MultiMsg(::rdmaio::Marshal::dump_null<MsgsHeader>()) {
+  }
 
-    MultiHeader header;
-    buf.append(::rdmaio::Marshal::dump<MultiHeader>(header));
+  static Option<MultiMsg<MAXSZ>> create_from(ByteBuffer &b) {
+    if (b.size() > MAXSZ)
+      return {};
+    auto res = MultiMsg<MAXSZ>(b);
 
+    // do sanity checks, if one failes, then return false
+    if (!res.header->sanity_check(b.size()))
+      return {};
+    return res;
+  }
+
+  /*!
+    \ret:
+     - true: a msg has been appended to the MultiMsg
+     - false: this can because:
+        + there is no free space for the msg (current msgs has occupied more than MAXSZ sz)
+        + there is no free entry for the msg (there already be kMaxMultimsg emplaced)
+   */
+  bool append(const ByteBuffer &msg) {
+    if (buf.size() + msg.size() > MAXSZ) {
+      return false;
+    }
+    if (!this->header->append_one(static_cast<u16>(msg.size())))
+      return false;
+    buf.append(msg);
+    return true;
+  }
+
+private:
+  /*!
+    create a multimsg from a buffer
+    fill the header and the buf
+   */
+  explicit MultiMsg(ByteBuffer &total_msg) : buf(std::move(total_msg)) {
+    buf.reserve(MAXSZ);
     { // unsafe code
       this->header = (MultiHeader *)(buf.data());
     }
