@@ -38,15 +38,15 @@ namespace bootstrap {
 const usize kMaxMultiMsg = 8;
 
 struct __attribute__((packed)) MsgEntry {
-  u16 sz = 0;
   u16 offset = 0;
+  u16 sz = 0;
 
   static usize max_entry_sz() { return std::numeric_limits<u16>::max(); }
 };
 
 struct __attribute__((packed)) MsgsHeader {
   u8 num = 0;
-  MultiEntry entries[kMaxMultiMsg];
+  MsgEntry entries[kMaxMultiMsg];
 
   bool has_free_entry() const { return num < kMaxMultiMsg; }
 
@@ -57,13 +57,13 @@ struct __attribute__((packed)) MsgsHeader {
     if (!has_free_entry())
       return false;
 
-    u16 off = 0;
+    u16 off = sizeof(MsgsHeader);
     if (num != 0) {
-      off = entries[num - 1].off + entries[num - 1].sz;
+      off = entries[num - 1].offset + entries[num - 1].sz;
     } else {
       // handles nothing, off should be zero
     }
-    entries[num++] = {.off = off, .sz = sz};
+    entries[num++] = {.offset = off, .sz = sz};
     return true;
   }
 
@@ -72,13 +72,15 @@ struct __attribute__((packed)) MsgsHeader {
     if (num > kMaxMultiMsg)
       return false;
 
-    u16 cur_off = 0;
+    u16 cur_off = sizeof(MsgsHeader);
+
     for (uint i = 0; i < num; ++i) {
-      if (entries[i].off != cur_off)
+      if (entries[i].offset != cur_off) {
         return false;
+      }
       cur_off += entries[i].sz;
     }
-    return static_cast<usize>(cur_off) == sz;
+    return (static_cast<usize>(cur_off) == sz);
   }
 };
 
@@ -101,7 +103,7 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
     auto res = MultiMsg<MAXSZ>(b);
 
     // do sanity checks, if one failes, then return false
-    if (!res.header->sanity_check(b.size()))
+    if (!res.header->sanity_check(res.buf.size()))
       return {};
     return res;
   }
@@ -123,15 +125,28 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
     return true;
   }
 
+  // the following is the querier for the msg
+  usize num_msg() const {
+    return static_cast<usize>(header->num);
+  }
+
 private:
   /*!
     create a multimsg from a buffer
     fill the header and the buf
    */
   explicit MultiMsg(ByteBuffer &total_msg) : buf(std::move(total_msg)) {
+    init();
+  }
+
+  explicit MultiMsg(const ByteBuffer &total_msg) : buf(total_msg) {
+    init();
+  }
+
+  void init() {
     buf.reserve(MAXSZ);
     { // unsafe code
-      this->header = (MultiHeader *)(buf.data());
+      this->header = (MsgsHeader *)(buf.data());
     }
   }
 };
