@@ -1,5 +1,3 @@
-project (rlib)
-
 cmake_minimum_required(VERSION 2.8)
 
 add_definitions(-std=c++14)
@@ -19,11 +17,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
              #target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB} ${gflags_DIR}/libgflags_nothreads.a)
 #ENDFOREACH()
 
-include(tests/tests.cmake)
-
 ## tests
 enable_testing()
 
 add_test(NAME test COMMAND coretest)
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose
                   DEPENDS coretest)
+
+include(tests/tests.cmake)
+
+project (rlib)
+
