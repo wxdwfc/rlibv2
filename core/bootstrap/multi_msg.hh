@@ -90,18 +90,18 @@ struct __attribute__((packed)) MsgsHeader {
   and we can decode these buffers separately.
   Note that at most *kMaxMultiMsg* can be encoded.
  */
-template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
+template <usize MAXSZ = kMaxMsgSz> struct MultiMsg {
   MsgsHeader *header;
   ByteBuffer buf;
 
   static_assert(MAXSZ > sizeof(MsgsHeader), "MultiMsg reserved sz too small");
-  MultiMsg() : MultiMsg(::rdmaio::Marshal::dump_null<MsgsHeader>()) {
-  }
+  explicit MultiMsg(const usize &reserve_sz = MAXSZ)
+      : MultiMsg(::rdmaio::Marshal::dump_null<MsgsHeader>(),reserve_sz) {}
 
   static Option<MultiMsg<MAXSZ>> create_from(ByteBuffer &b) {
     if (b.size() > MAXSZ)
       return {};
-    auto res = MultiMsg<MAXSZ>(b);
+    auto res = MultiMsg<MAXSZ>(b,b.size());
 
     // do sanity checks, if one failes, then return false
     if (!res.header->sanity_check(res.buf.size()))
@@ -113,8 +113,10 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
     \ret:
      - true: a msg has been appended to the MultiMsg
      - false: this can because:
-        + there is no free space for the msg (current msgs has occupied more than MAXSZ sz)
-        + there is no free entry for the msg (there already be kMaxMultimsg emplaced)
+        + there is no free space for the msg (current msgs has occupied more
+    than MAXSZ sz)
+        + there is no free entry for the msg (there already be kMaxMultimsg
+    emplaced)
    */
   bool append(const ByteBuffer &msg) {
     if (buf.size() + msg.size() > MAXSZ) {
@@ -127,9 +129,7 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
   }
 
   // the following is the querier for the msg
-  usize num_msg() const {
-    return static_cast<usize>(header->num);
-  }
+  usize num_msg() const { return static_cast<usize>(header->num); }
 
   /*!
     Get one msg from the multimsg
@@ -139,7 +139,7 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
     if (idx >= num_msg())
       return {};
     MsgEntry &entry = header->entries[idx];
-    return ByteBuffer(buf.data() + entry.offset,entry.sz);
+    return ByteBuffer(buf.data() + entry.offset, entry.sz);
   }
 
 private:
@@ -147,16 +147,19 @@ private:
     create a multimsg from a buffer
     fill the header and the buf
    */
-  explicit MultiMsg(ByteBuffer &total_msg) : buf(std::move(total_msg)) {
-    init();
+  explicit MultiMsg(ByteBuffer &total_msg, usize reserve_sz = MAXSZ)
+      : buf(std::move(total_msg)) {
+    init(force_reserve);
   }
 
-  explicit MultiMsg(const ByteBuffer &total_msg) : buf(total_msg) {
-    init();
+  explicit MultiMsg(const ByteBuffer &total_msg, usize reserve_sz = MAXSZ)
+      : buf(total_msg) {
+    init(force_reserve);
   }
 
-  void init() {
-    buf.reserve(MAXSZ);
+  void init(const usize &reserve_sz) {
+    usize true_reserve_sz = std::min(std::max(reserve_sz,sizeof(MsgsHeader)),MAXSZ);
+    buf.reserve(true_reserve_sz);
     { // unsafe code
       this->header = (MsgsHeader *)(buf.data());
     }
