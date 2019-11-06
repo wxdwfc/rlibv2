@@ -55,6 +55,7 @@ TEST(BootMsg, Basic) {
   for (MsgsIter<TestMsg> iter(mss_2); iter.valid(); iter.next()) {
     ASSERT_TRUE(iter_count < ground_truth.size());
     ASSERT_EQ(iter.cur_msg().compare(ground_truth[iter_count]),0);
+    ASSERT_EQ(iter.cur_msg().compare(mss_2.query_one(iter_count).value()), 0);
     iter_count += 1;
   }
 

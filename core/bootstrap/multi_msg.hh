@@ -131,6 +131,17 @@ template <int MAXSZ = kMaxMsgSz> struct MultiMsg {
     return static_cast<usize>(header->num);
   }
 
+  /*!
+    Get one msg from the multimsg
+    \note: performance may be bad
+   */
+  Option<ByteBuffer> query_one(const usize &idx) const {
+    if (idx >= num_msg())
+      return {};
+    MsgEntry &entry = header->entries[idx];
+    return ByteBuffer(buf.data() + entry.offset,entry.sz);
+  }
+
 private:
   /*!
     create a multimsg from a buffer
