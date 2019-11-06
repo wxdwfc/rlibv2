@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../core/bootstrap/multi_msg.hh"
+#include "../core/bootstrap/multi_msg_iter.hh"
 
 #include "./random.hh"
 
@@ -17,17 +18,23 @@ TEST(BootMsg, Basic) {
 
   FastRandom rand(0xdeadbeaf);
 
+  std::vector<ByteBuffer> ground_truth;
+
   usize cur_sz = 0;
   for (uint i = 0; i < kMaxMultiMsg; ++i) {
 
     // todo: google test random string ?
     ByteBuffer msg = rand.next_string(rand.rand_number<usize>(50, 300));
+
     auto res = mss.append(msg);
     cur_sz += msg.size();
 
     if (!res) {
       ASSERT_TRUE(cur_sz + sizeof(MsgsHeader) > 1024);
       break;
+    } else {
+      // we really push the message, so add it to the ground-truth
+      ground_truth.push_back(msg);
     }
   }
 
@@ -43,8 +50,15 @@ TEST(BootMsg, Basic) {
   RDMA_LOG(4) << "mss_2 buf: " <<(void *) mss_2.buf.data() << " copied: " << (void *)copied_msg.data()
               << "; origin: " << (void *)mss.buf.data();
 
-  // finally we check the msg
+  // finally we check the msg content
+  usize iter_count = 0;
+  for (MsgsIter<TestMsg> iter(mss_2); iter.valid(); iter.next()) {
+    ASSERT_TRUE(iter_count < ground_truth.size());
+    ASSERT_EQ(iter.cur_msg().compare(ground_truth[iter_count]),0);
+    iter_count += 1;
+  }
 
+  ASSERT_EQ(iter_count,ground_truth.size());
 }
 
 } // namespace test

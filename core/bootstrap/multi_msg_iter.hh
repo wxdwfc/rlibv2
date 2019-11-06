@@ -29,12 +29,13 @@ namespace bootstrap {
   }
   `
  */
+template <typename Msgs>
 class MsgsIter {
-  const MultiMsg *msgs_p;
+  const Msgs *msgs_p;
   usize cur_idx = 0;
 
 public:
-  explicit MsgsIter(const MultiMsg &msgs) : msgs_p(&msgs) {}
+  explicit MsgsIter(const Msgs &msgs) : msgs_p(&msgs) {}
 
   bool valid() const {
     return cur_idx < msgs_p->num_msg();
@@ -47,7 +48,19 @@ public:
   std::pair<char *, usize> cur() const {
     RDMA_ASSERT(valid());
     MsgEntry &entry = msgs_p->header->entries[cur_idx];
-    return
+
+    char *data_ptr = nullptr;
+    {
+      // unsafe code
+      data_ptr = (char *)(msgs_p->buf.data() + entry.offset);
+    }
+    return std::make_pair(data_ptr,static_cast<usize>(entry.sz));
+  }
+
+  // a safe (but with memcpy) version of cur()
+  ByteBuffer cur_msg() const {
+    auto msg = cur();
+    return ByteBuffer(std::get<0>(msg),std::get<1>(msg));
   }
 };
 }
