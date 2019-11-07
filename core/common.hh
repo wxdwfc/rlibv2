@@ -94,7 +94,7 @@ using u8 = uint8_t;
 using i8 = int8_t;
 using usize = unsigned int;
 
-// some handy alias for smart pointers
+// some handy alias for smart pointer
 template <typename T>
 using Arc = std::shared_ptr<T>;
 

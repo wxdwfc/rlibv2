@@ -10,16 +10,18 @@ namespace rdmaio {
 
 namespace rmem {
 
+using register_id_t = u64;
+
 /*!
   The factory to manage all mr registeration.
   It check that all successful registered MR is valid.
  */
 class RegFactory {
-  using register_id_t = u64;
   std::map<register_id_t, Arc<RegHandler>> registered_mrs;
   std::mutex lock;
 
 public:
+
   RegFactory() = default;
 
   ~RegFactory() {
