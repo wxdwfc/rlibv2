@@ -36,7 +36,7 @@ protected:
     const struct sockaddr *addr_p =
         reinterpret_cast<const struct sockaddr *>(&addr);
     if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM, addr_p,
-               sizeof(addr))) {
+               sizeof(addr)) <= 0) {
       return Err(std::string(strerror(errno)));
     }
     return Ok(std::string(""));
@@ -52,8 +52,7 @@ protected:
     fd_set rfds;
     FD_ZERO(&rfds);
     FD_SET(sock_fd, &rfds);
-    struct timeval tv = {.tv_sec = 0,
-                         .tv_usec = static_cast<int>(to_usec)};
+    struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(to_usec)};
 
     auto ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
     switch (ready) {
@@ -65,14 +64,13 @@ protected:
       if (FD_ISSET(sock_fd, &rfds)) {
         // now recv the msg
         usize len = sizeof(addr);
-        auto n =
-            recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
-                                       (struct sockaddr *)(&addr), &len);
+        auto n = recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
+                          (struct sockaddr *)(&addr), &len);
         // we successfully receive one msg
         if (n >= 0) {
           return Ok(addr);
         } else {
-          //RDMA_LOG(4) << "error: " << strerror(errno);
+          // RDMA_LOG(4) << "error: " << strerror(errno);
           return Err(addr);
         }
       }
@@ -105,15 +103,20 @@ class SendChannel : public AbsChannel {
 
   explicit SendChannel(const std::string &ip, int port)
       : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)),
-        end_addr({.sin_family = AF_INET,
-                  .sin_port = htons(port),
-                  .sin_addr = {
-                      .s_addr = inet_addr(ip.c_str()),
-                  }}) {
+        end_addr(convert_addr(ip, port)) {
     if (valid()) {
       // set as a non-blocking channel
       fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
     }
+  }
+
+  static sockaddr_in convert_addr(const std::string &ip, int port) {
+    return {.sin_family = AF_INET,
+            .sin_port = htons(port),
+            .sin_addr = {
+                .s_addr = inet_addr(ip.c_str()),
+            }};
+    //
   }
 
 public:
@@ -146,14 +149,13 @@ public:
     Recv a reply of on the channel
    */
   Result<ByteBuffer> recv(const double &timeout_usec = 1000) {
-    ByteBuffer buf(kMaxMsgSz,'\0');
-    auto res = try_recv(buf,timeout_usec);
+    ByteBuffer buf(kMaxMsgSz, '\0');
+    auto res = try_recv(buf, timeout_usec);
     if (res == IOCode::Ok) {
       return Ok(std::move(buf));
     }
     // direct forward the res code to the reply
-    return Result<ByteBuffer>({
-      .code = res.code, .desc = ByteBuffer("")});
+    return Result<ByteBuffer>({.code = res.code, .desc = ByteBuffer("")});
   }
 };
 

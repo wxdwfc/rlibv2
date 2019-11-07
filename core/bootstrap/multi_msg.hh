@@ -70,8 +70,9 @@ struct __attribute__((packed)) MsgsHeader {
 
   // sanity check that the header content is consistent
   bool sanity_check(usize sz) const {
-    if (num > kMaxMultiMsg)
+    if (num > kMaxMultiMsg) {
       return false;
+    }
 
     u16 cur_off = sizeof(MsgsHeader);
 
@@ -81,7 +82,7 @@ struct __attribute__((packed)) MsgsHeader {
       }
       cur_off += entries[i].sz;
     }
-    return (static_cast<usize>(cur_off) == sz);
+    return (static_cast<usize>(cur_off) <= sz);
   }
 };
 
@@ -96,17 +97,32 @@ template <usize MAXSZ = kMaxMsgSz> struct MultiMsg {
 
   static_assert(MAXSZ > sizeof(MsgsHeader), "MultiMsg reserved sz too small");
   explicit MultiMsg(const usize &reserve_sz = MAXSZ)
-      : MultiMsg(::rdmaio::Marshal::dump_null<MsgsHeader>(),reserve_sz) {}
+      : MultiMsg(::rdmaio::Marshal::dump_null<MsgsHeader>(), reserve_sz) {}
 
+  /*!
+    Create from an existing MultiMsg
+   */
   static Option<MultiMsg<MAXSZ>> create_from(ByteBuffer &b) {
     if (b.size() > MAXSZ)
       return {};
-    auto res = MultiMsg<MAXSZ>(b,b.size());
+    auto res = MultiMsg<MAXSZ>(b);
 
     // do sanity checks, if one failes, then return false
-    if (!res.header->sanity_check(res.buf.size()))
+    if (!res.header->sanity_check(res.buf.size())) {
+      b = std::move(res.buf);
       return {};
+    }
     return res;
+  }
+
+  /*!
+    Create a MultiMsg with exact payload (sz)
+    Failes if sz + sizeof(MsgsHeader) > MAXSZ
+   */
+  static Option<MultiMsg<MAXSZ>> create_exact(const usize &sz) {
+    if (sz + sizeof(MsgsHeader) > MAXSZ)
+      return {};
+    return MultiMsg<MAXSZ>(sz + sizeof(MsgsHeader));
   }
 
   /*!
@@ -147,18 +163,15 @@ private:
     create a multimsg from a buffer
     fill the header and the buf
    */
-  explicit MultiMsg(ByteBuffer &total_msg, usize reserve_sz = MAXSZ)
-      : buf(std::move(total_msg)) {
-    init(force_reserve);
+  explicit MultiMsg(ByteBuffer &total_msg) : buf(std::move(total_msg)) {
+    init(total_msg.size());
   }
 
-  explicit MultiMsg(const ByteBuffer &total_msg, usize reserve_sz = MAXSZ)
-      : buf(total_msg) {
-    init(force_reserve);
-  }
+  MultiMsg(const ByteBuffer &m, usize reserve_sz) : buf(m) { init(reserve_sz); }
 
   void init(const usize &reserve_sz) {
-    usize true_reserve_sz = std::min(std::max(reserve_sz,sizeof(MsgsHeader)),MAXSZ);
+    usize true_reserve_sz = std::min(
+        std::max(reserve_sz, static_cast<usize>(sizeof(MsgsHeader))), MAXSZ);
     buf.reserve(true_reserve_sz);
     { // unsafe code
       this->header = (MsgsHeader *)(buf.data());
