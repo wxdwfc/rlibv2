@@ -43,8 +43,18 @@ public:
   }
 };
 
-class SRPcHandler {
+class SRpcHandler {
   Arc<RecvChannel> channel;
+
+public:
+  explicit SRpcHandler(const usize &port)
+      : channel(RecvChannel::create(port).value()) {}
+
+  /*!
+    Run a event loop to call received RPC calls
+    \ret: number of PRCs served
+   */
+  usize run_one_event_loop() {}
 };
 
 } // namespace bootstrap
