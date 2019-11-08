@@ -89,7 +89,6 @@ public:
           checksum += 1;
           switch (header.callstatus) {
           case CallStatus::Ok:
-            RDMA_LOG(4) << "ok reply: "
                         << decoded_reply.query_one(1).value().size();
             return ::rdmaio::Ok(decoded_reply.query_one(1).value());
           case CallStatus::Nop:
@@ -211,8 +210,6 @@ public:
              .checksum = checksum,
              .dummy = (id == RCtrlBinderIdType::HeartBeat) ? 1 : 0}));
         coded_reply.append(reply);
-        RDMA_LOG(4) << "reply with sz: " << coded_reply.buf.size()
-                    << "; parameter sz: " << reply.size();
 
         // send the reply to the client
         channel->reply_cur(coded_reply.buf);

@@ -80,7 +80,6 @@ private:
     auto o_id = ::rdmaio::Marshal::dedump<proto::MRReq>(b);
     if (o_id) {
       auto req_id = o_id.value();
-      RDMA_LOG(4) << "fetch mr id: " << req_id.id;
       auto o_attr = registered_mrs.get_attr_byid(req_id.id);
       if (o_attr) {
         return ::rdmaio::Marshal::dump<proto::MRReply>(

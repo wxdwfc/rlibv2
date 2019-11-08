@@ -69,7 +69,6 @@ public:
     auto res_reply = rpc.receive_reply(timeout_usec);
     if (res_reply == IOCode::Ok) {
       // further we check the status by decoding the reply
-      RDMA_LOG(4) << "rdma reply sz: "<< res_reply.desc.size();
       try {
         auto mr_reply =
             ::rdmaio::Marshal::dedump<proto::MRReply>(res_reply.desc).value();
