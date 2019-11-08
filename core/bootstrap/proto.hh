@@ -1,17 +1,18 @@
 #pragma once
 
-#include "../rmem/handler.hh"
-#include "./srpc.hh"
+#include "../rmem/factory.hh"
 
 namespace rdmaio {
 
 namespace proto {
 
+using rpc_id_t = u8;
+
 /*!
   RPC ids used for the callbacks
  */
-enum RCtrlBinderIdType : ::rdmaio::bootstrap::rpc_id_t {
-  Heartbeat = 0,
+enum RCtrlBinderIdType : rpc_id_t {
+  HeartBeat,
   FetchMr,
   CreateQp,
   Reserved,
@@ -28,13 +29,13 @@ enum CallbackStatus : u8 {
   Req/Reply for handling MR requests
  */
 struct __attribute__((packed)) MRReq {
-  rmem::register_id_t id;
+  ::rdmaio::rmem::register_id_t id;
   // maybe for future extensions, like permission, etc
 };
 
 struct __attribute__((packed)) MRReply {
   CallbackStatus status;
-  RegAttr attr;
+  ::rdmaio::rmem::RegAttr attr;
 };
 
 /*******************************************/

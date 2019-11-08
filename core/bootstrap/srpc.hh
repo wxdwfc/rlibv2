@@ -5,12 +5,13 @@
 
 #include "./channel.hh"
 #include "./multi_msg.hh"
+#include "./proto.hh"
 
 namespace rdmaio {
 
 namespace bootstrap {
 
-using rpc_id_t = u8;
+using namespace proto;
 
 enum CallStatus : u8 {
   Ok = 0,
@@ -28,6 +29,10 @@ struct __attribute__((packed)) SRpcHeader {
 struct __attribute__((packed)) SReplyHeader {
   u8 callstatus;
   u64 checksum;
+  // if dummy is euqal to 1,
+  // then we will omit the checksum check at client
+  // because it is a heartbeat reply message
+  u8 dummy = 0;
 };
 
 /*!
@@ -43,7 +48,8 @@ private:
 
 public:
   using MMsg = MultiMsg<kMaxMsgSz>;
-  SRpc(const std::string &addr) : channel(SendChannel::create(addr).value()) {}
+  explicit SRpc(const std::string &addr)
+      : channel(SendChannel::create(addr).value()) {}
 
   /*!
     Send an RPC with id "id", using a specificed parameter.
@@ -57,7 +63,8 @@ public:
       RDMA_ASSERT(mmsg.append(parameter));
       return channel->send(mmsg.buf);
     } else {
-      return Err(std::string("Msg too large!, only kMaxMsgSz supported"));
+      return ::rdmaio::Err(
+          std::string("Msg too large!, only kMaxMsgSz supported"));
     }
   }
 
@@ -65,7 +72,9 @@ public:
     Recv a reply from the server ysing the timeout specified.
     \Note: this call must follow from a "call"
     */
-  Result<ByteBuffer> receive_reply(const double &timeout_usec = 1000) {
+  Result<ByteBuffer> receive_reply(const double &timeout_usec = 1000000,
+                                   bool heartbeat = false) {
+  retry:
     auto res = channel->recv(timeout_usec);
     if (res == IOCode::Ok) {
       // further we decode the header for check
@@ -74,23 +83,29 @@ public:
         auto header = ::rdmaio::Marshal::dedump<SReplyHeader>(
                           decoded_reply.query_one(0).value())
                           .value();
+        if (header.dummy && !heartbeat)
+          goto retry; // ignore the heartbeat reply
         if (header.checksum == checksum) {
           checksum += 1;
           switch (header.callstatus) {
           case CallStatus::Ok:
+            RDMA_LOG(4) << "ok reply: "
+                        << decoded_reply.query_one(1).value().size();
             return ::rdmaio::Ok(decoded_reply.query_one(1).value());
           case CallStatus::Nop:
-            return Err(ByteBuffer("Not ready"));
+            return ::rdmaio::Err(ByteBuffer("Not ready"));
           default:
-            return Err(ByteBuffer("unknown error"));
+            return ::rdmaio::Err(ByteBuffer("unknown error"));
           }
         } else
-          return Err(ByteBuffer("Fatal checksum error"));
+          return ::rdmaio::Err(ByteBuffer("Fatal checksum error"));
       } catch (std::exception &e) {
-        return Err(ByteBuffer("decode reply error"));
+        return ::rdmaio::Err(ByteBuffer("decode reply error"));
       }
-    } else
+    } else {
+      // the receive has error, just return
       return res;
+    }
   }
 };
 
@@ -106,6 +121,12 @@ class RPCFactory {
 
   std::mutex lock;
 
+  RPCFactory() {
+    // register a default heartbeat handler
+    register_handler(RCtrlBinderIdType::HeartBeat,
+                     &RPCFactory::heartbeat_handler);
+  };
+
 public:
   bool register_handler(rpc_id_t id, req_handler_f val) {
     std::lock_guard<std::mutex> guard(lock);
@@ -119,6 +140,11 @@ public:
   ByteBuffer call_one(rpc_id_t id, const ByteBuffer &parameter) {
     auto fn = registered_handlers.find(id)->second;
     return fn(parameter);
+  }
+
+private:
+  static ByteBuffer heartbeat_handler(const ByteBuffer &b) {
+    return ByteBuffer(""); // a null reply is ok
   }
 };
 
@@ -162,7 +188,9 @@ public:
           // some error happens, which is fatal because we cannot decode the
           // checksim
           channel->reply_cur(::rdmaio::Marshal::dump<SReplyHeader>(
-              {.callstatus = CallStatus::FatalErr}));
+              {.callstatus = CallStatus::FatalErr,
+               .checksum = checksum,
+               .dummy = 0}));
           continue;
         }
 
@@ -179,8 +207,12 @@ public:
                                               reply.size())
                 .value();
         coded_reply.append(::rdmaio::Marshal::dump<SReplyHeader>(
-            {.callstatus = CallStatus::Ok, .checksum = checksum}));
+            {.callstatus = CallStatus::Ok,
+             .checksum = checksum,
+             .dummy = (id == RCtrlBinderIdType::HeartBeat) ? 1 : 0}));
         coded_reply.append(reply);
+        RDMA_LOG(4) << "reply with sz: " << coded_reply.buf.size()
+                    << "; parameter sz: " << reply.size();
 
         // send the reply to the client
         channel->reply_cur(coded_reply.buf);

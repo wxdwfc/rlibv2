@@ -20,6 +20,7 @@ struct __attribute__((packed)) IOCode {
     Err = 1,
     Timeout = 2,
     NearOk = 3, // there is some error, but may be tolerated
+    NotReady = 4,
   };
 
   Code c;
@@ -36,6 +37,8 @@ struct __attribute__((packed)) IOCode {
       return "Timeout";
     case NearOk:
       return "NearOk";
+    case NotReady:
+      return "NotReady";
     default:
       assert(false); // should not happen
     }
@@ -83,6 +86,10 @@ template <typename D = DummyDesc> inline Result<D> Err(const D &d = D()) {
 
 template <typename D = DummyDesc> inline Result<D> Timeout(const D &d = D()) {
   return {.code = IOCode(IOCode::Timeout), .desc = d};
+}
+
+template <typename D = DummyDesc> inline Result<D> NotReady(const D &d = D()) {
+  return {.code = IOCode(IOCode::NotReady), .desc = d};
 }
 
 // some handy integer defines
