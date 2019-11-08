@@ -12,17 +12,34 @@ namespace bootstrap {
 
 using rpc_id_t = u8;
 
-enum CallStatus {
+enum CallStatus : u8 {
   Ok = 0,
   Nop,
   WrongReply,
+  NotMatch,
+  FatalErr,
+};
+
+struct __attribute__((packed)) SRpcHeader {
+  rpc_id_t id;
+  u64 checksum;
+};
+
+struct __attribute__((packed)) SReplyHeader {
+  u8 callstatus;
+  u64 checksum;
 };
 
 /*!
   A simple RPC used for establish connection for RDMA.
  */
 class SRpc {
+public:
+  static const u64 invalid_checksum = 0;
+
+private:
   Arc<SendChannel> channel;
+  u64 checksum = invalid_checksum + 1;
 
 public:
   using MMsg = MultiMsg<kMaxMsgSz>;
@@ -35,7 +52,8 @@ public:
     auto mmsg_o = MMsg::create_exact(sizeof(rpc_id_t) + parameter.size());
     if (mmsg_o) {
       auto &mmsg = mmsg_o.value();
-      RDMA_ASSERT(mmsg.append(::rdmaio::Marshal::dump<rpc_id_t>(id)));
+      RDMA_ASSERT(mmsg.append(::rdmaio::Marshal::dump<SRpcHeader>(
+          {.id = id, .checksum = checksum})));
       RDMA_ASSERT(mmsg.append(parameter));
       return channel->send(mmsg.buf);
     } else {
@@ -49,7 +67,30 @@ public:
     */
   Result<ByteBuffer> receive_reply(const double &timeout_usec = 1000) {
     auto res = channel->recv(timeout_usec);
-    return res;
+    if (res == IOCode::Ok) {
+      // further we decode the header for check
+      try {
+        auto decoded_reply = MultiMsg<kMaxMsgSz>::create_from(res.desc).value();
+        auto header = ::rdmaio::Marshal::dedump<SReplyHeader>(
+                          decoded_reply.query_one(0).value())
+                          .value();
+        if (header.checksum == checksum) {
+          checksum += 1;
+          switch (header.callstatus) {
+          case CallStatus::Ok:
+            return ::rdmaio::Ok(decoded_reply.query_one(1).value());
+          case CallStatus::Nop:
+            return Err(ByteBuffer("Not ready"));
+          default:
+            return Err(ByteBuffer("unknown error"));
+          }
+        } else
+          return Err(ByteBuffer("Fatal checksum error"));
+      } catch (std::exception &e) {
+        return Err(ByteBuffer("decode reply error"));
+      }
+    } else
+      return res;
   }
 };
 
@@ -100,22 +141,45 @@ public:
   usize run_one_event_loop() {
     usize count = 0;
     for (channel->start(); channel->has_msg(); channel->next(), count += 1) {
+
       auto &msg = channel->cur();
 
+      u64 checksum = SRpc::invalid_checksum;
       try {
-        // create from move the cur_msg to a MuiltiMsg
-        auto segmeneted_msg = MultiMsg<kMaxMsgSz>::create_from(msg).value();
+        MultiMsg<kMaxMsgSz> segmeneted_msg;
+        SRpcHeader header;
+        try {
+          // create from move the cur_msg to a MuiltiMsg
+          segmeneted_msg = MultiMsg<kMaxMsgSz>::create_from(msg).value();
 
-        // query the RPC call id
-        rpc_id_t id = ::rdmaio::Marshal::dedump<rpc_id_t>(
-                                                          segmeneted_msg.query_one(0).value()).value();
+          // query the RPC call id
+          header = ::rdmaio::Marshal::dedump<SRpcHeader>(
+                       segmeneted_msg.query_one(0).value())
+                       .value();
+
+          checksum = header.checksum;
+        } catch (std::exception &e) {
+          // some error happens, which is fatal because we cannot decode the
+          // checksim
+          channel->reply_cur(::rdmaio::Marshal::dump<SReplyHeader>(
+              {.callstatus = CallStatus::FatalErr}));
+          continue;
+        }
+
+        // really handles the request
+        rpc_id_t id = header.id;
+
         ByteBuffer parameter = segmeneted_msg.query_one(1).value();
 
         // call the RPC
         ByteBuffer reply = factory.call_one(id, parameter);
 
-        MultiMsg<kMaxMsgSz> coded_reply = MultiMsg<kMaxMsgSz>::create_exact(sizeof(u8) + reply.size()).value();
-        coded_reply.append(::rdmaio::Marshal::dump<u8>(CallStatus::Ok));
+        MultiMsg<kMaxMsgSz> coded_reply =
+            MultiMsg<kMaxMsgSz>::create_exact(sizeof(SReplyHeader) +
+                                              reply.size())
+                .value();
+        coded_reply.append(::rdmaio::Marshal::dump<SReplyHeader>(
+            {.callstatus = CallStatus::Ok, .checksum = checksum}));
         coded_reply.append(reply);
 
         // send the reply to the client
@@ -126,10 +190,11 @@ public:
 
       } catch (std::exception &e) {
         // some error happens
-        RDMA_LOG(4) << "error: " << e.what();
-        channel->reply_cur(::rdmaio::Marshal::dump<u8>(CallStatus::Nop));
+        channel->reply_cur(::rdmaio::Marshal::dump<SReplyHeader>(
+            {.callstatus = CallStatus::Nop, .checksum = checksum}));
       }
     }
+
     return count;
   }
 };

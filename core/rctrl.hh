@@ -7,6 +7,8 @@
 
 #include <atomic>
 
+#include <pthread.h>
+
 namespace rdmaio {
 
 /*!
@@ -18,7 +20,7 @@ class RCtrl {
   std::atomic<bool> running;
   std::mutex lock;
 
-  pthread_t handler_tid_;
+  pthread_t handler_tid;
 
   /*!
     The two factory which allow user to **register** the QP, MR so that others
@@ -38,6 +40,38 @@ public:
     RDMA_ASSERT(rpc.register_handler(
         proto::FetchMr,
         std::bind(&RCtrl::fetch_mr_handler, this, std::placeholders::_1)));
+  }
+
+  /*!
+    Start the daemon thread for handling RDMA connection requests
+   */
+  bool start_daemon() {
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_create(&handler_tid, &attr, &RCtrl::daemon, this);
+    running = true;
+  }
+
+  /*!
+    Stop the daemon thread for handling RDMA connection requests
+   */
+  void stop_daemon() {
+    if (running) {
+      running = false;
+
+      asm volatile("" ::: "memory");
+      pthread_join(handler_tid, nullptr);
+    }
+  }
+
+  static void *daemon(void *ctx) {
+    RCtrl &ctrl = *((RCtrl *)ctx);
+    u64 total_reqs = 0;
+    while (ctrl.running) {
+      total_reqs +=  ctrl.rpc.run_one_event_loop();
+      continue;
+    }
+    RDMA_LOG(INFO) << "stop with :" << total_reqs << " processed.";
   }
 
   // handlers of the dameon call

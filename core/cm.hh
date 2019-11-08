@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./bootstrap/srpc.hh"
+#include "./bootstrap/proto.hh"
 
 namespace rdmaio {
 
@@ -34,7 +35,13 @@ using namespace bootstrap;
 class ConnectManager {
   SRpc rpc;
 
-
+  Result<std::string> wait_ready(const double &timeout_usec) {
+    // send a dummy request to the RPC
+    auto res = rpc.call(proto::Heartbeat, ByteBuffer(1,'0'));
+    if (res != IOCode::Ok)
+      return res;
+    auto res_reply = rpc.receive_reply(timeout_usec);
+  }
 };
 
 

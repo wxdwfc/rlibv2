@@ -39,9 +39,7 @@ TEST(RPC, Basic) {
     auto res_reply = rpc.receive_reply();
     RDMA_ASSERT(res_reply == IOCode::Ok);
 
-    auto reply_msg = MultiMsg<kMaxMsgSz>::create_from(res_reply.desc).value();
-    ASSERT_EQ(reply_msg.query_one(0).value().size(), 1); // return Code
-    ASSERT_EQ(reply_msg.query_one(1).value().size(), 73 + i); // reply Code
+    ASSERT_EQ(res_reply.desc.size(), 73 + i);
   }
 }
 
