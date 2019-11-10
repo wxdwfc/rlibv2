@@ -18,7 +18,6 @@ namespace rdmaio {
 class RCtrl {
 
   std::atomic<bool> running;
-  std::mutex lock;
 
   pthread_t handler_tid;
 
@@ -29,6 +28,7 @@ class RCtrl {
 public:
   rmem::RegFactory registered_mrs;
   qp::Factory registeted_qps;
+  NicFactory  opened_nics;
 
   bootstrap::SRpcHandler rpc;
 

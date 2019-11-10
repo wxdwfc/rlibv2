@@ -17,7 +17,7 @@ class RC;
 class UD;
 class Impl;
 
-class QPConfig {
+struct __attribute__((packed))  QPConfig {
 public:
   QPConfig() = default;
 
