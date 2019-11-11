@@ -148,6 +148,14 @@ public:
     opened_nics.insert(std::make_pair(id,nic));
     return true;
   }
+
+  Option<Arc<RNic>> find_opened_nic(const nic_id_t &id) {
+    std::lock_guard<std::mutex> guard(lock);
+    if (opened_nics.find(id) != opened_nics.end()) {
+      return opened_nics[id];
+    }
+    return {};
+  }
 };
 
 } // namespace rdmaio

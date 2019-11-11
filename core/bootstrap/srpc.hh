@@ -89,7 +89,6 @@ public:
           checksum += 1;
           switch (header.callstatus) {
           case CallStatus::Ok:
-                        << decoded_reply.query_one(1).value().size();
             return ::rdmaio::Ok(decoded_reply.query_one(1).value());
           case CallStatus::Nop:
             return ::rdmaio::Err(ByteBuffer("Not ready"));
@@ -208,7 +207,9 @@ public:
         coded_reply.append(::rdmaio::Marshal::dump<SReplyHeader>(
             {.callstatus = CallStatus::Ok,
              .checksum = checksum,
-             .dummy = (id == RCtrlBinderIdType::HeartBeat) ? 1 : 0}));
+             .dummy = (id == RCtrlBinderIdType::HeartBeat)
+                          ? static_cast<u8>(1)
+                          : static_cast<u8>(0)}));
         coded_reply.append(reply);
 
         // send the reply to the client

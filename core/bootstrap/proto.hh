@@ -1,7 +1,8 @@
 #pragma once
 
 #include "../rmem/factory.hh"
-#include "../qps/rc.hh"
+#include "../qps/factory.hh"
+#include "../qps/config.hh"
 
 namespace rdmaio {
 
@@ -15,7 +16,7 @@ using rpc_id_t = u8;
 enum RCtrlBinderIdType : rpc_id_t {
   HeartBeat,
   FetchMr,
-  CreateQp,
+  CreateRC,
   Reserved,
 };
 
@@ -49,9 +50,15 @@ struct __attribute__((packed)) RCReq {
   ::rdmaio::qp::Factory::register_id_t id;
 
   // parameter for creating the QP
-  ::rdmaio::nic_id_t id;
+  ::rdmaio::nic_id_t nic_id;
   u8 whether_create = 0; // 1: create the QP, 0 only query the QP attr
-  QPConfig  config;
+  ::rdmaio::qp::QPConfig  config;
+  ::rdmaio::qp::QPAttr    attr; // the attr used for connect
+};
+
+struct __attribute__((packed)) RCReply {
+  CallbackStatus status;
+  ::rdmaio::qp::QPAttr attr;
 };
 
 /*******************************************/
