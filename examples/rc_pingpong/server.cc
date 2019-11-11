@@ -1,1 +1,44 @@
-int main(int argc, char **argv) {}
+#include <gflags/gflags.h>
+
+#include "../../core/lib.hh"
+
+DEFINE_int64(port, 8888, "Server listener (UDP) port.");
+DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
+DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
+DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
+
+using namespace rdmaio;
+using namespace rdmaio::rmem;
+
+int main(int argc, char **argv) {
+
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  RCtrl ctrl(FLAGS_port);
+
+  // first we open the NIC
+  {
+    auto nic =
+        RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
+
+    // register the nic with name 0
+    RDMA_ASSERT(ctrl.opened_nics.register_opened_nic(FLAGS_reg_nic_name, nic));
+  }
+
+  {
+    // allocate a memory (with 1024 bytes) so that remote QP can access it
+    RDMA_ASSERT(
+        ctrl.registered_mrs.create_and_reg(
+            FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024)),
+            ctrl.opened_nics.find_opened_nic(FLAGS_reg_nic_name).value()) ==
+        IOCode::Ok);
+  }
+
+  ctrl.start_daemon();
+
+  RDMA_LOG(2) << "RC pingpong server started!";
+  while (1) {
+    // server does nothing because it is RDMA
+    sleep(1);
+  }
+}

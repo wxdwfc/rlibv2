@@ -58,6 +58,23 @@ public:
   }
 
   /*!
+    *C*reate and *C*onnect an RC QP at remote end.
+    This function first creates an RC QP at local,
+    and then create an RC QP at remote host to connect with the local
+    created QP.
+
+    \param:
+    - id: the remote naming of this QP
+    - nic_id: the remote NIC used for connect the pair QP
+   */
+  std::pair<Result<std::string>,Arc<qp::RC>>
+  cc_rc(const ::rdmaio::qp::Factory::register_id_t &id,
+        ::rdmaio::nic_id_t &nic_id,
+        ::rdmaio::qp::QPConfig config = ::rdmaio::qp::QPConfig()) {
+    return std::make_pair(::rdmaio::Ok(std::string("")),Arc<qp::RC>(nullptr));
+  }
+
+  /*!
     Fetch remote MR identified with "id" at remote machine of this connection
     manager, store the result in the "attr".
    */

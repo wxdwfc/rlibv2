@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "../common.hh"
 

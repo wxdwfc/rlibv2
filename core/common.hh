@@ -40,7 +40,7 @@ struct __attribute__((packed)) IOCode {
     case NotReady:
       return "NotReady";
     default:
-      assert(false); // should not happen
+      RDMA_ASSERT(false); // should not happen
     }
   }
 
