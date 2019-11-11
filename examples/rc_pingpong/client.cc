@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     auto res_p = qp->wait_one_comp();
     RDMA_ASSERT(res_p == IOCode::Ok);
 
-    RDMA_LOG(4) << "fetch one value:" << *test_buf;
+    RDMA_LOG(4) << "fetch one value: 0x" << std::hex <<  *test_buf;
   }
 
   /***********************************************************/

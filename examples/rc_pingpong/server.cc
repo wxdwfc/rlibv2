@@ -6,7 +6,7 @@ DEFINE_int64(port, 8888, "Server listener (UDP) port.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
-DEFINE_int64(magic_num, 0xdeadbeaf, "The magic number read by the client");
+DEFINE_uint64(magic_num, 0xdeadbeaf, "The magic number read by the client");
 
 using namespace rdmaio;
 using namespace rdmaio::rmem;
@@ -33,6 +33,13 @@ int main(int argc, char **argv) {
             FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024)),
             ctrl.opened_nics.find_opened_nic(FLAGS_reg_nic_name).value()) ==
         IOCode::Ok);
+  }
+
+  // initialzie the value
+  u64 *reg_mem = (u64 *)(ctrl.registered_mrs.get_attr_byid(FLAGS_reg_mem_name).value().buf);
+  for(uint i = 0;i < 12;++i) {
+    reg_mem[i] = FLAGS_magic_num + i;
+    asm volatile("" ::: "memory");
   }
 
   ctrl.start_daemon();
