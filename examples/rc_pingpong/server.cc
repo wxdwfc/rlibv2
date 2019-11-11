@@ -6,6 +6,7 @@ DEFINE_int64(port, 8888, "Server listener (UDP) port.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
+DEFINE_int64(magic_num, 0xdeadbeaf, "The magic number read by the client");
 
 using namespace rdmaio;
 using namespace rdmaio::rmem;
