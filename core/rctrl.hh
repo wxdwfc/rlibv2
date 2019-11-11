@@ -28,7 +28,7 @@ class RCtrl {
 public:
   rmem::RegFactory registered_mrs;
   qp::Factory registered_qps;
-  NicFactory  opened_nics;
+  NicFactory opened_nics;
 
   bootstrap::SRpcHandler rpc;
 
@@ -41,6 +41,10 @@ public:
     RDMA_ASSERT(rpc.register_handler(
         proto::CreateRC,
         std::bind(&RCtrl::rc_handler, this, std::placeholders::_1)));
+
+    RDMA_ASSERT(rpc.register_handler(
+        proto::DeleteRC,
+        std::bind(&RCtrl::delete_rc, this, std::placeholders::_1)));
   }
 
   /*!
@@ -71,7 +75,7 @@ public:
     RCtrl &ctrl = *((RCtrl *)ctx);
     u64 total_reqs = 0;
     while (ctrl.running) {
-      total_reqs +=  ctrl.rpc.run_one_event_loop();
+      total_reqs += ctrl.rpc.run_one_event_loop();
       continue;
     }
     RDMA_LOG(INFO) << "stop with :" << total_reqs << " processed.";
@@ -79,7 +83,6 @@ public:
 
   // handlers of the dameon call
 private:
-
   ByteBuffer fetch_mr_handler(const ByteBuffer &b) {
     auto o_id = ::rdmaio::Marshal::dedump<proto::MRReq>(b);
     if (o_id) {
@@ -98,15 +101,38 @@ private:
         {.status = proto::CallbackStatus::WrongArg});
   }
 
+  ByteBuffer delete_rc(const ByteBuffer &b) {
+    auto rc_req_o = ::rdmaio::Marshal::dedump<proto::DelRCReq>(b);
+    if (!rc_req_o)
+      goto WA;
+    {
+      auto del_res = registered_qps.deregister_rc(rc_req_o.value().id,
+                                                  rc_req_o.value().key);
+      if (!del_res) {
+        goto WA;
+      }
+      if (del_res.value() == nullptr)
+        return ::rdmaio::Marshal::dump<proto::RCReply>(
+            {.status = proto::CallbackStatus::AuthErr});
+      return ::rdmaio::Marshal::dump<proto::RCReply>(
+          {.status = proto::CallbackStatus::Ok});
+    }
+  WA:
+    return ::rdmaio::Marshal::dump<proto::RCReply>(
+        {.status = proto::CallbackStatus::WrongArg});
+  }
+
   /*!
     Given a RCReq, query its attribute from the QPs
     \ret: Marshalling RCReply to a Bytebuffer
    */
-  ByteBuffer fetch_qp_attr(const proto::RCReq &req) {
+  ByteBuffer fetch_qp_attr(const proto::RCReq &req, const u64 &key) {
     auto rc = registered_qps.query_rc(req.id);
     if (rc) {
       return ::rdmaio::Marshal::dump<proto::RCReply>(
-          {.status = proto::CallbackStatus::Ok, .attr = rc.value()->my_attr()});
+          {.status = proto::CallbackStatus::Ok,
+           .attr = rc.value()->my_attr(),
+           .key = key});
     }
     return ::rdmaio::Marshal::dump<proto::RCReply>(
         {.status = proto::CallbackStatus::NotFound});
@@ -133,6 +159,7 @@ private:
         goto WA;
 
       // 1. check whether we need to create the QP
+      u64 key = 0;
       if (rc_req.whether_create == 1) {
         // 1.0 find the Nic to create this QP
         auto nic = opened_nics.find_opened_nic(rc_req.nic_id);
@@ -140,28 +167,33 @@ private:
           goto WA; // failed to find Nic
 
         // 1.1 try to create and register this QP
-        auto rc_status = registered_qps.create_and_register_rc(
-            rc_req.id, nic.value(), rc_req.config);
+        auto rc = qp::RC::create(nic.value(), rc_req.config).value();
+        auto rc_status = registered_qps.register_rc(rc_req.id, rc);
+
         if (rc_status != IOCode::Ok) {
           // clean up
           goto WA;
         }
 
         // 1.2 finally we connect the QP
-        if (rc_status.desc->connect(rc_req.attr) != IOCode::Ok) {
+        if (rc->connect(rc_req.attr) != IOCode::Ok) {
           // in connect error
-          registered_qps.deregister_rc(rc_req.id);
+          registered_qps.deregister_rc(rc_req.id, rc_status.desc);
           goto WA;
         }
+        key = rc_status.desc;
       }
 
       // 2. fetch the QP result
-      return fetch_qp_attr(rc_req);
+      return fetch_qp_attr(rc_req, key);
     }
     // Error handling cases:
   WA: // wrong arg
     return ::rdmaio::Marshal::dump<proto::RCReply>(
         {.status = proto::CallbackStatus::WrongArg});
+  Err:
+    return ::rdmaio::Marshal::dump<proto::RCReply>(
+        {.status = proto::CallbackStatus::ConnectErr});
   }
 };
 

@@ -2,6 +2,7 @@
 
 #include <map>
 #include <mutex>
+#include <stdlib.h> /* srand, rand */
 
 #include "./rc.hh"
 
@@ -15,34 +16,41 @@ public:
   using register_id_t = u64;
 
 private:
-  std::map<register_id_t, Arc<RC>> rc_store;
+  std::map<register_id_t, std::pair<Arc<RC>, u64>> rc_store;
 
   std::mutex lock;
+
 public:
   Factory() = default;
 
   /*!
     Register an RC qp to the QP factory with $id$.
     \ret
-    - Ok -> nothing
-    - Err -> if (res.desc) -> return the already registered QP id
-    - Err -> if (!res.desc) -> the QP is not ready to register
+    - Ok -> a randomly generate key
+    - Err -> nothing
+    - Err -> nothing
    */
-  Result<Option<register_id_t>> register_rc(const register_id_t &id,
-                                            Arc<RC> rc) {
+  Result<u64> register_rc(const register_id_t &id, Arc<RC> rc) {
     if (!rc->valid())
-      return Err(Option<register_id_t>(0));
+      return Err(static_cast<u64>(0));
     std::lock_guard<std::mutex> guard(lock);
     auto it = rc_store.find(id);
     if (it != rc_store.end()) {
-      return NearOk(Option<register_id_t>(it->first));
+      return NearOk(static_cast<u64>(0));
     }
-    rc_store.insert(std::make_pair(id, rc));
-    return Ok(Option<register_id_t>(id));
+
+    // generate a non-zero key for the register
+    u64 key = rand();
+    while (key == 0)
+      key = rand();
+
+    rc_store.insert(std::make_pair(id, std::make_pair(rc, key)));
+    return Ok(key);
   }
 
   /*!
     Create and register a QP, then register it to the factory
+    // do we really need this call?
    */
   template <typename... Ts>
   Result<Arc<RC>> create_and_register_rc(const register_id_t &id, Ts... args) {
@@ -61,19 +69,26 @@ public:
   Option<Arc<RC>> query_rc(const register_id_t &id) {
     std::lock_guard<std::mutex> guard(lock);
     if (rc_store.find(id) != rc_store.end()) {
-      return rc_store[id];
+      return std::get<0>(rc_store[id]);
     }
     return {};
   }
 
-  void deregister_rc(const register_id_t &id) {
+  Option<Arc<RC>> deregister_rc(const register_id_t &id, const u64 &key) {
     std::lock_guard<std::mutex> guard(lock);
     auto it = rc_store.find(id);
-    if (it != rc_store.end())
-      rc_store.erase(it);
+    if (it != rc_store.end()) {
+      if (key == std::get<1>(it->second)) {
+        auto res = std::get<0>(it->second);
+        rc_store.erase(it);
+        return res;
+      } else
+        return Arc<RC>(nullptr);
+    }
+    return {}; // fail to register key due to authentication failure
   }
 };
 
-} // namespace qps
+} // namespace qp
 
 } // namespace rdmaio

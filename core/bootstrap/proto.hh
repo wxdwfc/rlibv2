@@ -17,6 +17,7 @@ enum RCtrlBinderIdType : rpc_id_t {
   HeartBeat,
   FetchMr,
   CreateRC,
+  DeleteRC,
   Reserved,
 };
 
@@ -25,6 +26,8 @@ enum CallbackStatus : u8 {
   Err = 1,
   NotFound,
   WrongArg,
+  ConnectErr,
+  AuthErr,
 };
 
 /*!
@@ -49,9 +52,10 @@ struct __attribute__((packed)) RCReq {
   // parameter for querying the QP
   ::rdmaio::qp::Factory::register_id_t id;
 
-  // parameter for creating the QP
-  ::rdmaio::nic_id_t nic_id;
   u8 whether_create = 0; // 1: create the QP, 0 only query the QP attr
+
+  // if whether_create = 1, uses the following parameter to create the QP
+  ::rdmaio::nic_id_t nic_id;
   ::rdmaio::qp::QPConfig  config;
   ::rdmaio::qp::QPAttr    attr; // the attr used for connect
 };
@@ -59,6 +63,13 @@ struct __attribute__((packed)) RCReq {
 struct __attribute__((packed)) RCReply {
   CallbackStatus status;
   ::rdmaio::qp::QPAttr attr;
+  u64 key;
+};
+
+struct __attribute__((packed)) DelRCReq {
+  // parameter for querying the QP
+  ::rdmaio::qp::Factory::register_id_t id;
+  u64 key;
 };
 
 /*******************************************/
