@@ -6,17 +6,6 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_COMPILER /usr/bin/g++)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 
-#add_executable(rnic "examples/rnic.cc")
-#add_executable(simple_connect "examples/simple_connect.cc")
-#add_executable(qp "examples/qp_test.cc")
-#add_executable(pclient "examples/rc_pingpong/client.cc")
-#add_executable(pserver "examples/rc_pingpong/server.cc")
-
-#FOREACH(TEST ${TESTS}) 
-             #add_dependencies(${TEST} gflags)
-             #target_link_libraries(${TEST} -lpthread ibverbs ${RALLOC_LIB} ${gflags_DIR}/libgflags_nothreads.a)
-#ENDFOREACH()
-
 ## tests
 enable_testing()
 
@@ -25,6 +14,12 @@ add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose
                   DEPENDS coretest)
 
 include(tests/tests.cmake)
+
+## for examples
+set(ggflags_DIR "${CMAKE_SOURCE_DIR}/examples/gflags")
+add_subdirectory(${CMAKE_SOURCE_DIR}/examples/gflags)
+
+include(examples/exp.cmake)
 
 project (rlib)
 
