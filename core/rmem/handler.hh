@@ -67,6 +67,14 @@ public:
     // end class init
   }
 
+  static Option<Arc<RegHandler>> create(const Arc<RMem> &mem, const Arc<RNic> &nic,
+                                const MemoryFlags &flags = MemoryFlags()) {
+    auto ret = Arc<RegHandler>(new RegHandler(mem,nic,flags));
+    if (ret->valid())
+      return ret;
+    return {};
+  }
+
   bool valid() const { return mr != nullptr; }
 
   Option<RegAttr> get_reg_attr() const {

@@ -32,8 +32,7 @@ int main(int argc, char **argv) {
 
   // 3. create the local MR for usage, and create the remote MR for usage
   auto local_mem = Arc<RMem>(new RMem(1024));
-  auto local_mr = Arc<RegHandler>(new RegHandler(local_mem, nic));
-  RDMA_ASSERT(local_mr->valid());
+  auto local_mr = RegHandler::create(local_mem, nic).value();
 
   rmem::RegAttr remote_attr;
   auto fetch_res = cm.fetch_remote_mr(FLAGS_reg_mem_name, remote_attr);
