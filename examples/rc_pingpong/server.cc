@@ -29,15 +29,17 @@ int main(int argc, char **argv) {
 
   {
     // allocate a memory (with 1024 bytes) so that remote QP can access it
-    RDMA_ASSERT(
-        ctrl.registered_mrs.create_and_reg(
-            FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024)),
-            ctrl.opened_nics.query(FLAGS_reg_nic_name).value()) ==
-        IOCode::Ok);
+    RDMA_ASSERT(ctrl.registered_mrs.create_then_reg(
+        FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024)),
+        ctrl.opened_nics.query(FLAGS_reg_nic_name).value()));
   }
 
   // initialzie the value
-  u64 *reg_mem = (u64 *)(ctrl.registered_mrs.get_attr_byid(FLAGS_reg_mem_name).value().buf);
+  u64 *reg_mem = (u64 *)(ctrl.registered_mrs.query(FLAGS_reg_mem_name)
+                             .value()
+                             ->get_reg_attr()
+                             .value()
+                             .buf);
   for(uint i = 0;i < 12;++i) {
     reg_mem[i] = FLAGS_magic_num + i;
     asm volatile("" ::: "memory");

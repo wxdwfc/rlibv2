@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../rmem/factory.hh"
+#include "../rmem/handler.hh"
 #include "../qps/mod.hh"
 
 namespace rdmaio {

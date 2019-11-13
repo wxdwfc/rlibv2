@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../core/nicinfo.hh"
-#include "../core/rmem/factory.hh"
+#include "../core/rmem/handler.hh"
 
 namespace test {
 

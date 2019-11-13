@@ -1,11 +1,9 @@
 #pragma once
 
 #include "qps/mod.hh"
-#include "./rmem/factory.hh"
+#include "./rmem/handler.hh"
 
 #include "./bootstrap/srpc.hh"
-
-#include "./utils/abs_factory.hh"
 
 #include <atomic>
 
@@ -28,7 +26,7 @@ class RCtrl {
     can establish communication with them.
    */
 public:
-  rmem::RegFactory registered_mrs;
+  rmem::MRFactory registered_mrs;
   qp::RCFactory registered_rcs;
   Factory<nic_id_t,RNic> opened_nics;
 
@@ -90,10 +88,11 @@ private:
     auto o_id = ::rdmaio::Marshal::dedump<proto::MRReq>(b);
     if (o_id) {
       auto req_id = o_id.value();
-      auto o_attr = registered_mrs.get_attr_byid(req_id.id);
-      if (o_attr) {
+      auto o_mr = registered_mrs.query(req_id.id);
+      if (o_mr) {
         return ::rdmaio::Marshal::dump<proto::MRReply>(
-            {.status = proto::CallbackStatus::Ok, .attr = o_attr.value()});
+            {.status = proto::CallbackStatus::Ok,
+             .attr = o_mr.value()->get_reg_attr().value()});
 
       } else {
         return ::rdmaio::Marshal::dump<proto::MRReply>(

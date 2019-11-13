@@ -3,9 +3,6 @@
 #include "./bootstrap/proto.hh"
 #include "./bootstrap/srpc.hh"
 
-#include "./qps/mod.hh"
-#include "./rmem/factory.hh"
-
 namespace rdmaio {
 
 using namespace bootstrap;

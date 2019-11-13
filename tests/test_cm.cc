@@ -24,7 +24,7 @@ TEST(CM, MR) {
   // 2. allocate a buffer, and register it
   // allocate a memory with 1024 bytes
   auto mr = Arc<RegHandler>(new RegHandler(Arc<RMem>(new RMem(1024)), nic));
-  ctrl.registered_mrs.register_mr(73,mr);
+  ctrl.registered_mrs.reg(73,mr);
 
   // 3. fetch it through ethernet
   ConnectManager cm("localhost:8888");
