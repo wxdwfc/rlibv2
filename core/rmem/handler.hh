@@ -4,8 +4,11 @@
 #include <memory>
 
 #include "../nic.hh"
+#include "../utils/abs_factory.hh"
+
 #include "./config.hh"
 #include "./mem.hh"
+
 
 namespace rdmaio {
 
@@ -92,6 +95,9 @@ public:
 
   DISABLE_COPY_AND_ASSIGN(RegHandler);
 };
+
+using register_id_t = u64;
+using MRFactory = Factory<register_id_t, RegHandler>;
 
 } // namespace rmem
 

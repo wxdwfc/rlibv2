@@ -58,7 +58,7 @@ public:
     return {};
   }
 
-  Option<Arc<V>> dereg(const K &k, const u64 &k) {
+  Option<Arc<V>> dereg(const K &id, const u64 &k) {
     std::lock_guard<std::mutex> guard(lock);
     auto it = store.find(id);
     if (it != store.end()) {
@@ -81,15 +81,16 @@ public:
   Option<std::pair<Arc<V>, u64>> create_then_reg(const K &k, Ts... args) {
     auto v = V::create(args...);
     if (v) {
-      auto key = reg(k, v);
+      auto key = reg(k, v.value());
       if (key)
-        return std::make_pair(v, key.value());
+        return std::make_pair(v.value(), key.value());
     }
     return {};
   }
 
-private:
-  static u64 genereate_key() {
+protected:
+  // user can override the generate key function to generate their own authentical keys
+  virtual u64 generate_key() {
     u64 key = rand();
     while (key == 0)
       key = rand();

@@ -16,6 +16,7 @@ int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   RCtrl ctrl(FLAGS_port);
+  RDMA_LOG(4) << "Pingping server listenes at localhost:" << FLAGS_port;
 
   // first we open the NIC
   {
@@ -23,7 +24,7 @@ int main(int argc, char **argv) {
         RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
 
     // register the nic with name 0
-    RDMA_ASSERT(ctrl.opened_nics.register_opened_nic(FLAGS_reg_nic_name, nic));
+    RDMA_ASSERT(ctrl.opened_nics.reg(FLAGS_reg_nic_name, nic));
   }
 
   {
@@ -31,7 +32,7 @@ int main(int argc, char **argv) {
     RDMA_ASSERT(
         ctrl.registered_mrs.create_and_reg(
             FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024)),
-            ctrl.opened_nics.find_opened_nic(FLAGS_reg_nic_name).value()) ==
+            ctrl.opened_nics.query(FLAGS_reg_nic_name).value()) ==
         IOCode::Ok);
   }
 

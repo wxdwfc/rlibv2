@@ -5,6 +5,7 @@
 #include "../nic.hh"
 
 #include "../utils/timer.hh"
+#include "../utils/abs_factory.hh"
 
 namespace rdmaio {
 
@@ -121,3 +122,14 @@ struct Progress {
 
 #include "rc.hh"
 //#include "ud.hh"
+
+namespace rdmaio {
+namespace qp {
+
+class RC;
+
+// shall we use a string to identify QPs?
+using register_id_t = u64;
+using RCFactory = Factory<register_id_t, RC>;
+} // namespace qp
+} // namespace rdmaio

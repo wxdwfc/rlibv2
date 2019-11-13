@@ -62,7 +62,7 @@ public:
   }
 
   Result<std::string>
-  delete_remote_rc(const ::rdmaio::qp::Factory::register_id_t &id,
+  delete_remote_rc(const ::rdmaio::qp::register_id_t &id,
                    const u64 &key, const double &timeout_usec = 1000000) {
     auto res = rpc.call(
         proto::DeleteRC,
@@ -96,7 +96,7 @@ public:
     - id: the remote naming of this QP
     - nic_id: the remote NIC used for connect the pair QP
    */
-  Result<std::string> cc_rc(const ::rdmaio::qp::Factory::register_id_t &id,
+  Result<std::string> cc_rc(const ::rdmaio::qp::register_id_t &id,
                             const Arc<::rdmaio::qp::RC> rc, u64 &key,
                             const ::rdmaio::nic_id_t &nic_id,
                             const ::rdmaio::qp::QPConfig &config,

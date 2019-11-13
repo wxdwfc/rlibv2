@@ -1,8 +1,7 @@
 #pragma once
 
 #include "../rmem/factory.hh"
-#include "../qps/factory.hh"
-#include "../qps/config.hh"
+#include "../qps/mod.hh"
 
 namespace rdmaio {
 
@@ -50,7 +49,7 @@ struct __attribute__((packed)) MRReply {
  */
 struct __attribute__((packed)) RCReq {
   // parameter for querying the QP
-  ::rdmaio::qp::Factory::register_id_t id;
+  ::rdmaio::qp::register_id_t id;
 
   u8 whether_create = 0; // 1: create the QP, 0 only query the QP attr
 
@@ -68,7 +67,7 @@ struct __attribute__((packed)) RCReply {
 
 struct __attribute__((packed)) DelRCReq {
   // parameter for querying the QP
-  ::rdmaio::qp::Factory::register_id_t id;
+  ::rdmaio::qp::register_id_t id;
   u64 key;
 };
 

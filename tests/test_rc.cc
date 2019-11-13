@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
+#include "../core/qps/rc.hh"
 #include "../core/nicinfo.hh"
-#include "../core/qps/factory.hh"
 
 namespace test {
 
@@ -59,17 +59,15 @@ TEST(RRC, basic) {
 
 TEST(RRC, Factory) {
 
-  ::rdmaio::qp::Factory factory;
+  ::rdmaio::qp::RCFactory factory;
 
   auto res = RNicInfo::query_dev_names();
   ASSERT_FALSE(res.empty());
 
   auto nic = RNic::create(res[0]).value();
 
-  auto qp_res = factory.create_and_register_rc(12,nic,QPConfig());
-  RDMA_ASSERT(qp_res == IOCode::Ok);
-  ASSERT_TRUE(qp_res.desc->valid());
-
+  auto qp_res = factory.create_then_reg(12,nic,QPConfig()).value();
+  ASSERT_TRUE(std::get<0>(qp_res)->valid());
 }
 
 } // namespace test

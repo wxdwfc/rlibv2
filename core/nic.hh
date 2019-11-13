@@ -137,25 +137,4 @@ private:
   DISABLE_COPY_AND_ASSIGN(RNic);
 };
 
-class NicFactory {
-  std::map<nic_id_t, Arc<RNic>> opened_nics;
-  std::mutex lock;
-public:
-  bool register_opened_nic(const nic_id_t &id, Arc<RNic> nic) {
-    std::lock_guard<std::mutex> guard(lock);
-    if (opened_nics.find(id) != opened_nics.end())
-      return false; // an nic with this id has already registered
-    opened_nics.insert(std::make_pair(id,nic));
-    return true;
-  }
-
-  Option<Arc<RNic>> find_opened_nic(const nic_id_t &id) {
-    std::lock_guard<std::mutex> guard(lock);
-    if (opened_nics.find(id) != opened_nics.end()) {
-      return opened_nics[id];
-    }
-    return {};
-  }
-};
-
 } // namespace rdmaio

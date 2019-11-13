@@ -1,9 +1,11 @@
 #pragma once
 
-#include "./qps/factory.hh"
+#include "qps/mod.hh"
 #include "./rmem/factory.hh"
 
 #include "./bootstrap/srpc.hh"
+
+#include "./utils/abs_factory.hh"
 
 #include <atomic>
 
@@ -27,8 +29,9 @@ class RCtrl {
    */
 public:
   rmem::RegFactory registered_mrs;
-  qp::Factory registered_qps;
-  NicFactory opened_nics;
+  qp::RCFactory registered_rcs;
+  Factory<nic_id_t,RNic> opened_nics;
+
 
   bootstrap::SRpcHandler rpc;
 
@@ -106,8 +109,8 @@ private:
     if (!rc_req_o)
       goto WA;
     {
-      auto del_res = registered_qps.deregister_rc(rc_req_o.value().id,
-                                                  rc_req_o.value().key);
+      auto del_res = registered_rcs.dereg(rc_req_o.value().id,
+                                          rc_req_o.value().key);
       if (!del_res) {
         goto WA;
       }
@@ -127,7 +130,7 @@ private:
     \ret: Marshalling RCReply to a Bytebuffer
    */
   ByteBuffer fetch_qp_attr(const proto::RCReq &req, const u64 &key) {
-    auto rc = registered_qps.query_rc(req.id);
+    auto rc = registered_rcs.query(req.id);
     if (rc) {
       return ::rdmaio::Marshal::dump<proto::RCReply>(
           {.status = proto::CallbackStatus::Ok,
@@ -162,15 +165,15 @@ private:
       u64 key = 0;
       if (rc_req.whether_create == 1) {
         // 1.0 find the Nic to create this QP
-        auto nic = opened_nics.find_opened_nic(rc_req.nic_id);
+        auto nic = opened_nics.query(rc_req.nic_id);
         if (!nic)
           goto WA; // failed to find Nic
 
         // 1.1 try to create and register this QP
         auto rc = qp::RC::create(nic.value(), rc_req.config).value();
-        auto rc_status = registered_qps.register_rc(rc_req.id, rc);
+        auto rc_status = registered_rcs.reg(rc_req.id, rc);
 
-        if (rc_status != IOCode::Ok) {
+        if (!rc_status) {
           // clean up
           goto WA;
         }
@@ -178,10 +181,10 @@ private:
         // 1.2 finally we connect the QP
         if (rc->connect(rc_req.attr) != IOCode::Ok) {
           // in connect error
-          registered_qps.deregister_rc(rc_req.id, rc_status.desc);
+          registered_rcs.dereg(rc_req.id, rc_status.value());
           goto WA;
         }
-        key = rc_status.desc;
+        key = rc_status.value();
       }
 
       // 2. fetch the QP result
