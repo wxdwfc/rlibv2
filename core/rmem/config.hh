@@ -43,6 +43,11 @@ class MemoryFlags
   MemoryFlags& add_remote_write()
   {
     protection_flags |= IBV_ACCESS_REMOTE_WRITE;
+    /*
+      According to https://www.rdmamojo.com/2012/09/07/ibv_reg_mr/
+      local write must be set to enable remote write
+     */
+    add_local_write();
     return *this;
   }
 
