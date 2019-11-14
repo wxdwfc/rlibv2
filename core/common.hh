@@ -105,6 +105,9 @@ using usize = unsigned int;
 template <typename T>
 using Arc = std::shared_ptr<T>;
 
+#ifdef DISABLE_COPY_AND_ASSIGN
+#undef DISABLE_COPY_AND_ASSIGN
+#endif
 #define DISABLE_COPY_AND_ASSIGN(classname)                                     \
 private:                                                                       \
   classname(const classname &) = delete;                                       \
