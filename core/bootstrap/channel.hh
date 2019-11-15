@@ -116,8 +116,30 @@ class SendChannel : public AbsChannel {
   struct sockaddr_in end_addr;
 
   explicit SendChannel(const std::string &ip, int port)
-      : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)),
+      //: AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)),
         end_addr(convert_addr(ip, port)) {
+    struct addrinfo hints, *servinfo;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    if ((getaddrinfo(ip.c_str(), ports, &hints, &servinfo)) != 0) {
+      return;
+    }
+
+    int sockfd = -1;
+    // loop through all the results and make a socket
+    for (auto p = servinfo; p != NULL; p = p->ai_next) {
+      if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
+          -1) {
+        continue;
+      }
+
+      break;
+    }
+
+    this->set_socket(sockfd);
+
     if (valid()) {
       // set as a non-blocking channel
       fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
