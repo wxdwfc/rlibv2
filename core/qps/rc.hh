@@ -47,6 +47,8 @@ class RC : public Dummy {
   // default remote MR used by this QP
   Option<RegAttr> remote_mr;
 
+  Result<> status = NotReady();
+
   // pending requests monitor
   Progress progress;
 
@@ -60,8 +62,7 @@ class RC : public Dummy {
      ...
      }
   */
-  RC(Arc<RNic> nic, const QPConfig &config)
-      : Dummy(nic), my_config(config) {
+  RC(Arc<RNic> nic, const QPConfig &config) : Dummy(nic), my_config(config) {
     /*
       It takes 3 steps to create an RC QP during the initialization
       according to the RDMA programming mannal.
@@ -70,32 +71,35 @@ class RC : public Dummy {
       Finally, we change the qp to read_to_init status.
      */
     // 1 cq
-    auto res = Impl::create_cq(nic,my_config.max_send_sz());
-    if(res != IOCode::Ok) {
+    auto res = Impl::create_cq(nic, my_config.max_send_sz());
+    if (res != IOCode::Ok) {
       RDMA_LOG(4) << "Error on creating CQ: " << std::get<1>(res.desc);
       return;
     }
     this->cq = std::get<0>(res.desc);
 
     // 2 qp
-    auto res_qp = Impl::create_qp(nic,IBV_QPT_RC,my_config,this->cq,this->recv_cq);
-    if(res_qp != IOCode::Ok) {
+    auto res_qp =
+        Impl::create_qp(nic, IBV_QPT_RC, my_config, this->cq, this->recv_cq);
+    if (res_qp != IOCode::Ok) {
       RDMA_LOG(4) << "Error on creating QP: " << std::get<1>(res.desc);
       return;
     }
     this->qp = std::get<0>(res_qp.desc);
 
     // 3 -> init
-    auto res_init = Impl::bring_qp_to_init(this->qp, this->my_config,this->nic);
-    if(res_init != IOCode::Ok) {
+    auto res_init =
+        Impl::bring_qp_to_init(this->qp, this->my_config, this->nic);
+    if (res_init != IOCode::Ok) {
       RDMA_LOG(4) << "failed to bring QP to init: " << res_init.desc;
     }
   }
 
- public:
-  static Option<Arc<RC>> create(Arc<RNic> nic, const QPConfig &config = QPConfig()) {
-    auto res = Arc<RC>(new RC(nic,config));
-    if(res->valid()) {
+public:
+  static Option<Arc<RC>> create(Arc<RNic> nic,
+                                const QPConfig &config = QPConfig()) {
+    auto res = Arc<RC>(new RC(nic, config));
+    if (res->valid()) {
       return Option<Arc<RC>>(std::move(res));
     }
     return {};
@@ -106,15 +110,15 @@ class RC : public Dummy {
     \note: this function would panic if the created context (nic) is not valid
    */
   QPAttr my_attr() const {
-    return {
-      .addr = nic->addr.value(),
-      .lid  = nic->lid.value(),
-      .psn  = static_cast<u64>(my_config.rq_psn),
-      .port_id = static_cast<u64>(nic->id.port_id),
-      .qpn = static_cast<u64>(qp->qp_num),
-      .qkey = static_cast<u64>(0)
-    };
+    return {.addr = nic->addr.value(),
+            .lid = nic->lid.value(),
+            .psn = static_cast<u64>(my_config.rq_psn),
+            .port_id = static_cast<u64>(nic->id.port_id),
+            .qpn = static_cast<u64>(qp->qp_num),
+            .qkey = static_cast<u64>(0)};
   }
+
+  Result<> my_status() const { return status; }
 
   /*!
     bind a mr to remote/local mr(so that QP is able to access its memory)
@@ -141,7 +145,8 @@ class RC : public Dummy {
         {
           // first bring QP to ready to recv. note we bring it to ready to init
           // during class's construction.
-          auto res = Impl::bring_rc_to_rcv(qp, my_config, attr, my_attr().port_id);
+          auto res =
+              Impl::bring_rc_to_rcv(qp, my_config, attr, my_attr().port_id);
           if (res.code != IOCode::Ok)
             return res;
           // then we bring it to ready to send.
@@ -149,6 +154,7 @@ class RC : public Dummy {
           if (res.code != IOCode::Ok)
             return res;
         }
+        this->status = Ok();
         return Ok(std::string(""));
       }
     } else {
@@ -190,6 +196,9 @@ class RC : public Dummy {
                                   const ReqPayload &payload,
                                   const RegAttr &local_mr,
                                   const RegAttr &remote_mr) {
+    RDMA_ASSERT(status == IOCode::Ok)
+        << "a QP should be Ok to send, current status: " << status.code.name();
+
     struct ibv_sge sge {
       .addr = (u64)(payload.local_addr), .length = desc.len,
       .lkey = local_mr.key
