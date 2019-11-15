@@ -62,6 +62,7 @@ protected:
     FD_SET(sock_fd, &rfds);
     struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(to_usec)};
 
+    RDMA_LOG(2) << "select fd: " << sock_fd;
     auto ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
 
     switch (ready) {
@@ -73,6 +74,7 @@ protected:
     default: {
       RDMA_LOG(4) << "select default:" << ready;
       if (FD_ISSET(sock_fd, &rfds)) {
+        RDMA_LOG(4) << "in fd set " << buf.size();
         // now recv the msg
         usize len = sizeof(addr);
         auto n = recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
@@ -82,12 +84,18 @@ protected:
         if (n >= 0) {
           RDMA_LOG(4) << "try recv one msg: " << n;
           return Ok(addr);
-        } else {
+        }
+        else {
           RDMA_LOG(4) << "error: " << strerror(errno);
           return Err(addr);
         }
+      } else {
+        for(uint i = 0;i < sock_fd;++i)
+          RDMA_LOG(2) << "check: " << (int)FD_ISSET(i,&rfds);
+        // return
       }
     }
+      // end switch
     }
     return Err(addr); // should not return here
   }
@@ -190,7 +198,8 @@ class RecvChannel : public AbsChannel {
   Option<sockaddr> cur_msg_client = {}; // who sent the current client
   ByteBuffer cur_msg;
 
-  explicit RecvChannel(int port) {
+  explicit RecvChannel(int port)
+      : cur_msg(::rdmaio::bootstrap::kMaxMsgSz, '\0') {
     struct addrinfo hints, *servinfo, *p;
     socklen_t addr_len;
     memset(&hints, 0, sizeof hints);
@@ -205,17 +214,21 @@ class RecvChannel : public AbsChannel {
       goto err;
     }
 
+    char host[256];
     for (p = servinfo; p != NULL; p = p->ai_next) {
 
       if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
           -1) {
         continue;
       }
-
+      getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof(host), NULL, 0,
+                  NI_NUMERICHOST);
+      RDMA_LOG(2) << "parse host : " << host;
       if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
         close(sockfd);
         continue;
       }
+      RDMA_LOG(2) << "choose host : " << host;
 
       break;
     }
