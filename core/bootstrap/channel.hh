@@ -62,19 +62,15 @@ protected:
     FD_SET(sock_fd, &rfds);
     struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(to_usec)};
 
-    RDMA_LOG(2) << "select fd: " << sock_fd;
     auto ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
 
     switch (ready) {
     case 0:
       return Timeout(addr);
     case -1:
-      RDMA_LOG(2) << "select failure? ";
       return Err(addr);
     default: {
-      RDMA_LOG(4) << "select default:" << ready;
       if (FD_ISSET(sock_fd, &rfds)) {
-        RDMA_LOG(4) << "in fd set " << buf.size();
         // now recv the msg
         usize len = sizeof(addr);
         auto n = recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
@@ -82,17 +78,14 @@ protected:
 
         // we successfully receive one msg
         if (n >= 0) {
-          RDMA_LOG(4) << "try recv one msg: " << n;
           return Ok(addr);
         }
         else {
-          RDMA_LOG(4) << "error: " << strerror(errno);
+          //RDMA_LOG(4) << "error: " << strerror(errno);
           return Err(addr);
         }
       } else {
-        for(uint i = 0;i < sock_fd;++i)
-          RDMA_LOG(2) << "check: " << (int)FD_ISSET(i,&rfds);
-        // return
+        RDMA_ASSERT(false);
       }
     }
       // end switch
@@ -223,12 +216,11 @@ class RecvChannel : public AbsChannel {
       }
       getnameinfo(p->ai_addr, p->ai_addrlen, host, sizeof(host), NULL, 0,
                   NI_NUMERICHOST);
-      RDMA_LOG(2) << "parse host : " << host;
       if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
         close(sockfd);
         continue;
       }
-      RDMA_LOG(2) << "choose host : " << host;
+      //RDMA_LOG(2) << "choose host : " << host;
 
       break;
     }
@@ -284,7 +276,6 @@ public:
       return;
     auto res = try_recv(cur_msg, timeout_usec);
     if (res == IOCode::Ok) {
-      RDMA_LOG(4) << "try recv ok?";
       cur_msg_client = res.desc;
     }
   }
