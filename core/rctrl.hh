@@ -58,7 +58,7 @@ public:
 
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    pthread_create(&handler_tid, &attr, &RCtrl::daemon, this);
+    return (pthread_create(&handler_tid, &attr, &RCtrl::daemon, this) == 0);
   }
 
   /*!
@@ -81,6 +81,7 @@ public:
       continue;
     }
     RDMA_LOG(INFO) << "stop with :" << total_reqs << " processed.";
+    return nullptr; // nothing should return
   }
 
   // handlers of the dameon call

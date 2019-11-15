@@ -21,7 +21,14 @@ protected:
 
   explicit AbsChannel(int sock) : sock_fd(sock) {}
 
+  AbsChannel() : sock_fd(-1) {}
+
   bool valid() const { return sock_fd >= 0; }
+
+  // possible to set later
+  void set_socket(int fd)  {
+    sock_fd = fd;
+  }
 
   Result<> close_channel() {
     if (valid()) {
@@ -61,8 +68,10 @@ protected:
     case 0:
       return Timeout(addr);
     case -1:
+      RDMA_LOG(2) << "select failure? ";
       return Err(addr);
     default: {
+      RDMA_LOG(4) << "select default:" << ready;
       if (FD_ISSET(sock_fd, &rfds)) {
         // now recv the msg
         usize len = sizeof(addr);
@@ -71,9 +80,10 @@ protected:
 
         // we successfully receive one msg
         if (n >= 0) {
+          RDMA_LOG(4) << "try recv one msg: " << n;
           return Ok(addr);
         } else {
-          //RDMA_LOG(4) << "error: " << strerror(errno);
+          RDMA_LOG(4) << "error: " << strerror(errno);
           return Err(addr);
         }
       }
@@ -180,8 +190,48 @@ class RecvChannel : public AbsChannel {
   Option<sockaddr> cur_msg_client = {}; // who sent the current client
   ByteBuffer cur_msg;
 
-  explicit RecvChannel(int port, const std::string &host = "localhost")
-      : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)), cur_msg(kMaxMsgSz, '\0') {
+  explicit RecvChannel(int port) {
+    struct addrinfo hints, *servinfo, *p;
+    socklen_t addr_len;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE; // use my IP
+
+    int sockfd = -1;
+
+    if ((getaddrinfo(nullptr, std::to_string(port).c_str(), &hints,
+                     &servinfo)) != 0) {
+      goto err;
+    }
+
+    for (p = servinfo; p != NULL; p = p->ai_next) {
+
+      if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
+          -1) {
+        continue;
+      }
+
+      if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+        close(sockfd);
+        continue;
+      }
+
+      break;
+    }
+    if (p == nullptr)
+      RDMA_LOG(4) << "failed to bind port: " << port;
+  err:
+    set_socket(sockfd);
+    freeaddrinfo(servinfo);
+
+    if (valid()) {
+      fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
+    }
+  }
+
+  explicit RecvChannel(int port, const std::string &host)
+    : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)), cur_msg(kMaxMsgSz, '\0') {
     if (valid()) {
       // set as a non-blocking channel
       fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
@@ -204,7 +254,7 @@ class RecvChannel : public AbsChannel {
 
 public:
   static Option<Arc<RecvChannel>> create(int port,const std::string &h = "localhost") {
-    auto rc = Arc<RecvChannel>(new RecvChannel(port,h));
+    auto rc = Arc<RecvChannel>(new RecvChannel(port));
     if (rc->valid()) {
       return rc;
     }
@@ -221,6 +271,7 @@ public:
       return;
     auto res = try_recv(cur_msg, timeout_usec);
     if (res == IOCode::Ok) {
+      RDMA_LOG(4) << "try recv ok?";
       cur_msg_client = res.desc;
     }
   }
@@ -234,7 +285,7 @@ public:
   /*!
     Drop current msg, and try to recv another one
    */
-  bool next() {
+  void next() {
     cur_msg_client = {}; // re-set msg header
     start();             // fill one msg
   }

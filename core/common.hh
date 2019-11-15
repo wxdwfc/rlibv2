@@ -42,6 +42,7 @@ struct __attribute__((packed)) IOCode {
     default:
       RDMA_ASSERT(false); // should not happen
     }
+    return "";
   }
 
   inline bool operator==(const Code &code) { return c == code; }
