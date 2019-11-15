@@ -36,6 +36,7 @@ protected:
     RDMA_ASSERT(valid());
     const struct sockaddr *addr_p =
         reinterpret_cast<const struct sockaddr *>(&addr);
+
     if (sendto(sock_fd, buf.c_str(), buf.size(), MSG_CONFIRM, addr_p,
                sizeof(addr)) <= 0) {
       return Err(std::string(strerror(errno)));
@@ -46,8 +47,7 @@ protected:
   /*!
     \param timeout: timeout in usec
    */
-  Result<sockaddr> try_recv(ByteBuffer &buf, const double to_usec = 1000) {
-
+  Result<sockaddr> try_recv(ByteBuffer &buf, const double to_usec = 1000000) {
     struct sockaddr addr;
 
     fd_set rfds;
@@ -56,6 +56,7 @@ protected:
     struct timeval tv = {.tv_sec = 0, .tv_usec = static_cast<int>(to_usec)};
 
     auto ready = select(sock_fd + 1, &rfds, nullptr, nullptr, &tv);
+
     switch (ready) {
     case 0:
       return Timeout(addr);
@@ -67,11 +68,12 @@ protected:
         usize len = sizeof(addr);
         auto n = recvfrom(sock_fd, (char *)(buf.c_str()), buf.size(), 0,
                           (struct sockaddr *)(&addr), &len);
+
         // we successfully receive one msg
         if (n >= 0) {
           return Ok(addr);
         } else {
-          // RDMA_LOG(4) << "error: " << strerror(errno);
+          //RDMA_LOG(4) << "error: " << strerror(errno);
           return Err(addr);
         }
       }
@@ -178,16 +180,19 @@ class RecvChannel : public AbsChannel {
   Option<sockaddr> cur_msg_client = {}; // who sent the current client
   ByteBuffer cur_msg;
 
-  explicit RecvChannel(int port)
+  explicit RecvChannel(int port, const std::string &host = "localhost")
       : AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)), cur_msg(kMaxMsgSz, '\0') {
     if (valid()) {
       // set as a non-blocking channel
       fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
 
       // bind to this port
-      sockaddr_in my_addr = {.sin_family = AF_INET,
-                             .sin_port = htons(port),
-                             .sin_addr = {.s_addr = INADDR_ANY}};
+      sockaddr_in my_addr = {
+          .sin_family = AF_INET,
+          .sin_port = htons(port),
+          .sin_addr = {.s_addr =
+                           (host == "localhost" ? INADDR_ANY
+                                                : inet_addr(host.c_str()))}};
       if (bind(this->sock_fd, (const struct sockaddr *)&my_addr,
                sizeof(my_addr))) {
         RDMA_LOG(4) << "bind to port: " << port
@@ -198,8 +203,8 @@ class RecvChannel : public AbsChannel {
   }
 
 public:
-  static Option<Arc<RecvChannel>> create(int port) {
-    auto rc = Arc<RecvChannel>(new RecvChannel(port));
+  static Option<Arc<RecvChannel>> create(int port,const std::string &h = "localhost") {
+    auto rc = Arc<RecvChannel>(new RecvChannel(port,h));
     if (rc->valid()) {
       return rc;
     }
@@ -215,8 +220,9 @@ public:
     if (has_msg())
       return;
     auto res = try_recv(cur_msg, timeout_usec);
-    if (res == IOCode::Ok)
+    if (res == IOCode::Ok) {
       cur_msg_client = res.desc;
+    }
   }
 
   bool has_msg() const {
@@ -241,7 +247,7 @@ public:
   Result<std::string> reply_cur(const ByteBuffer &buf) {
     return raw_send(buf, cur_msg_client.value());
   };
-};
+}; // namespace bootstrap
 
 } // namespace bootstrap
 

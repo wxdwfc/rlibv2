@@ -52,7 +52,7 @@ public:
         return res;
       auto res_reply =
           rpc.receive_reply(timeout_usec, true); // receive as hearbeat message
-      if (res_reply == IOCode::Ok)
+      if (res_reply == IOCode::Ok || res_reply == IOCode::Err)
         return res_reply;
     }
     return Timeout(std::string("retry exceeds num"));

@@ -52,7 +52,7 @@ public:
     char *data_ptr = nullptr;
     {
       // unsafe code
-      data_ptr = (char *)(msgs_p->buf.data() + entry.offset);
+      data_ptr = (char *)(msgs_p->buf->data() + entry.offset);
     }
     return std::make_pair(data_ptr,static_cast<usize>(entry.sz));
   }

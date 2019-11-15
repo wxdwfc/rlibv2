@@ -41,14 +41,12 @@ TEST(BootMsg, Basic) {
   RDMA_LOG(4) << "total " << mss.num_msg() << " test msgs added";
 
   // now we parse the msg content
-  auto copied_msg = mss.buf;
+  auto &copied_msg = *(mss.buf);
   RDMA_LOG(4) << "copied msg's sz: " << copied_msg.size();
   auto mss_2 = TestMsg::create_from(copied_msg).value();
   ASSERT_EQ(mss_2.num_msg(),mss.num_msg());
 
   // iterate through the msgs to check contents
-  RDMA_LOG(4) << "mss_2 buf: " <<(void *) mss_2.buf.data() << " copied: " << (void *)copied_msg.data()
-              << "; origin: " << (void *)mss.buf.data();
 
   // finally we check the msg content
   usize iter_count = 0;

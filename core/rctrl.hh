@@ -34,7 +34,8 @@ public:
   bootstrap::SRpcHandler rpc;
 
 public:
-  explicit RCtrl(const usize &port) : running(false), rpc(port) {
+  explicit RCtrl(const usize &port, const std::string &h = "localhost")
+      : running(false), rpc(port, h) {
     RDMA_ASSERT(rpc.register_handler(
         proto::FetchMr,
         std::bind(&RCtrl::fetch_mr_handler, this, std::placeholders::_1)));

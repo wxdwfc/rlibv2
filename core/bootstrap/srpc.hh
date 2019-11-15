@@ -61,7 +61,7 @@ public:
       RDMA_ASSERT(mmsg.append(::rdmaio::Marshal::dump<SRpcHeader>(
           {.id = id, .checksum = checksum})));
       RDMA_ASSERT(mmsg.append(parameter));
-      return channel->send(mmsg.buf);
+      return channel->send(*mmsg.buf);
     } else {
       return ::rdmaio::Err(
           std::string("Msg too large!, only kMaxMsgSz supported"));
@@ -77,14 +77,25 @@ public:
   retry:
     auto res = channel->recv(timeout_usec);
     if (res == IOCode::Ok) {
+
       // further we decode the header for check
       try {
+
         auto decoded_reply = MultiMsg<kMaxMsgSz>::create_from(res.desc).value();
+
         auto header = ::rdmaio::Marshal::dedump<SReplyHeader>(
                           decoded_reply.query_one(0).value())
                           .value();
-        if (header.dummy && !heartbeat)
-          goto retry; // ignore the heartbeat reply
+
+        // first we handle heartbeat reply
+        if (header.dummy) {
+          if (!heartbeat)
+            goto retry; // ignore the heartbeat reply
+
+          return ::rdmaio::Ok(ByteBuffer(""));
+        }
+
+        // then we handle normal reply
         if (header.checksum == checksum) {
           checksum += 1;
           switch (header.callstatus) {
@@ -98,6 +109,7 @@ public:
         } else
           return ::rdmaio::Err(ByteBuffer("Fatal checksum error"));
       } catch (std::exception &e) {
+
         return ::rdmaio::Err(ByteBuffer("decode reply error"));
       }
     } else {
@@ -142,7 +154,7 @@ public:
 
 private:
   static ByteBuffer heartbeat_handler(const ByteBuffer &b) {
-    return ByteBuffer(""); // a null reply is ok
+    return ByteBuffer("1"); // a null reply is ok
   }
 };
 
@@ -151,8 +163,8 @@ class SRpcHandler {
   RPCFactory factory;
 
 public:
-  explicit SRpcHandler(const usize &port)
-      : channel(RecvChannel::create(port).value()) {}
+  explicit SRpcHandler(const usize &port, const std::string &h = "localhost")
+      : channel(RecvChannel::create(port, h).value()) {}
 
   bool register_handler(rpc_id_t id, RPCFactory::req_handler_f val) {
     return factory.register_handler(id, val);
@@ -164,7 +176,7 @@ public:
    */
   usize run_one_event_loop() {
     usize count = 0;
-    for (channel->start(); channel->has_msg(); channel->next(), count += 1) {
+    for (channel->start(1000000); channel->has_msg(); channel->next(), count += 1) {
 
       auto &msg = channel->cur();
 
@@ -184,11 +196,17 @@ public:
           checksum = header.checksum;
         } catch (std::exception &e) {
           // some error happens, which is fatal because we cannot decode the
-          // checksim
-          channel->reply_cur(::rdmaio::Marshal::dump<SReplyHeader>(
+          // checksum
+
+          MultiMsg<kMaxMsgSz> coded_reply =
+            MultiMsg<kMaxMsgSz>::create_exact(sizeof(SReplyHeader)).value();
+
+          coded_reply.append(::rdmaio::Marshal::dump<SReplyHeader>(
               {.callstatus = CallStatus::FatalErr,
                .checksum = checksum,
                .dummy = 0}));
+          channel->reply_cur(*coded_reply.buf);
+
           continue;
         }
 
@@ -213,15 +231,16 @@ public:
         coded_reply.append(reply);
 
         // send the reply to the client
-        channel->reply_cur(coded_reply.buf);
-
-        // move the buf back to the cur msg
-        channel->cur() = std::move(segmeneted_msg.buf);
+        channel->reply_cur(*coded_reply.buf);
 
       } catch (std::exception &e) {
+        MultiMsg<kMaxMsgSz> coded_reply =
+          MultiMsg<kMaxMsgSz>::create_exact(sizeof(SReplyHeader)).value();
+
         // some error happens
-        channel->reply_cur(::rdmaio::Marshal::dump<SReplyHeader>(
+        coded_reply.append(::rdmaio::Marshal::dump<SReplyHeader>(
             {.callstatus = CallStatus::Nop, .checksum = checksum}));
+        channel->reply_cur(*coded_reply.buf);
       }
     }
 
