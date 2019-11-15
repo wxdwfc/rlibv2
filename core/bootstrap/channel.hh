@@ -115,7 +115,7 @@ class SendChannel : public AbsChannel {
 
   struct sockaddr_in end_addr;
 
-  explicit SendChannel(const std::string &ip, int port)
+  explicit SendChannel(const std::string &ip, int port) :
       //: AbsChannel(socket(AF_INET, SOCK_DGRAM, 0)),
         end_addr(convert_addr(ip, port)) {
     struct addrinfo hints, *servinfo;
