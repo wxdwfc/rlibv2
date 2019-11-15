@@ -123,7 +123,7 @@ class SendChannel : public AbsChannel {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((getaddrinfo(ip.c_str(), port, &hints, &servinfo)) != 0) {
+    if ((getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &servinfo)) != 0) {
       return;
     }
 
