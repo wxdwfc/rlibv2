@@ -106,12 +106,19 @@ using usize = unsigned int;
 template <typename T>
 using Arc = std::shared_ptr<T>;
 
-#ifdef DISABLE_COPY_AND_ASSIGN
-#undef DISABLE_COPY_AND_ASSIGN
-#endif
+#ifndef DISABLE_COPY_AND_ASSIGN
 #define DISABLE_COPY_AND_ASSIGN(classname)                                     \
 private:                                                                       \
   classname(const classname &) = delete;                                       \
   classname &operator=(const classname &) = delete
+#endif
+
+#ifndef unlikely(x)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#endif
+
+#ifndef likely(x)
+#define likely(x) __builtin_expect(!!(x), 1)
+#endif
 
 } // namespace rdmaio
