@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <limits>
@@ -70,7 +69,6 @@ struct __attribute__((packed)) MsgsHeader {
 
   // sanity check that the header content is consistent
   bool sanity_check(usize sz) const {
-    RDMA_LOG(4) << "decode num: " << (int)num;
 
     if (num > kMaxMultiMsg) {
       return false;

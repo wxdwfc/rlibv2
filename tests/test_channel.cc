@@ -44,7 +44,6 @@ TEST(Channel, Basic) {
   usize count = 0;
   for (recv_c->start(); recv_c->has_msg(); recv_c->next(), count += 1) {
     auto &msg = recv_c->cur();
-    RDMA_LOG(4) << "Recv one";
     u64 val = Marshal::dedump<u64>(msg).value();
     ASSERT_EQ(val, count + 73);
 
