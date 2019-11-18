@@ -26,13 +26,14 @@ public:
     if (qp->qp_type == IBV_QPT_RC) {
       qp_attr.qp_access_flags = config.access_flags;
       flags |= IBV_QP_ACCESS_FLAGS;
-    }
-
-    if (qp->qp_type == IBV_QPT_UD) {
+    } else if (qp->qp_type == IBV_QPT_UD) {
       qp_attr.qkey = config.qkey;
       flags |= IBV_QP_QKEY;
+    } else {
+      // TODO: UC not implemented
     }
 
+    RDMA_ASSERT(qp != nullptr);
     int rc = ibv_modify_qp(qp, &qp_attr, flags);
     if(rc != 0) {
       return Err(std::string(strerror(errno)));
@@ -140,6 +141,8 @@ public:
     }
     return Ok(std::make_pair(qp, std::string("")));
   }
+
+
 };
 
 } // namespace qp
