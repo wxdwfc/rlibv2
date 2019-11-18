@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../core/rctrl.hh"
-#include "../core/nicinfo.hh"
-#include "../core/cm.hh"
+#include "../core/lib.hh"
 
 namespace test {
 

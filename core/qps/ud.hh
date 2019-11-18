@@ -14,16 +14,27 @@ namespace qp {
   `
  */
 class UD : public Dummy {
+  /*!
+    a msg should fill in one packet (4096 bytes); some bytes are reserved
+    for header (GRH size)
+  */
+  const usize kMaxMsgSz = 4000;
+
+  usize pending_reqs = 0;
 
 public:
   const QPConfig my_config;
 
   static Option<Arc<UD>> create(Arc<RNic> nic, const QPConfig &config) {
-    auto ud_ptr = Arc<UD>(new UD(nic,config));
+    auto ud_ptr = Arc<UD>(new UD(nic, config));
     if (ud_ptr->valid())
       return ud_ptr;
     return {};
   }
+
+  inline usize get_pending_reqs() const { return pending_reqs; }
+
+  Result<std::string> send() { return Err(std::string("not implemented")); }
 
 private:
   UD(Arc<RNic> nic, const QPConfig &config) : Dummy(nic), my_config(config) {
@@ -96,6 +107,7 @@ private:
     rc = ibv_modify_qp(qp, &qp_attr, flags);
     return rc == 0;
   }
+
 };
 } // namespace qp
 

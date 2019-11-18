@@ -14,13 +14,15 @@ namespace rdmaio {
 
 namespace rmem {
 
+using mr_key_t = u32;
+
 /*!
   The attr that exchanged between nodes.
  */
 struct __attribute__((packed)) RegAttr {
   uintptr_t buf;
   u64 sz;
-  u32 key;
+  mr_key_t key;
 };
 
 /*!
