@@ -2,8 +2,8 @@
 
 #include "../core/nicinfo.hh"
 
+#include "../core/qps/recv_iter.hh"
 #include "../core/qps/ud.hh"
-#include "../core/qps/recv_helper.hh"
 
 #include "../core/utils/marshal.hh"
 
@@ -39,7 +39,7 @@ TEST(UD, Create) {
   auto nic = std::make_shared<RNic>(res[0]);
   ASSERT_TRUE(nic->valid());
 
-  auto ud = UD::create(nic,QPConfig()).value();
+  auto ud = UD::create(nic, QPConfig()).value();
   ASSERT_TRUE(ud->valid());
 
   RDMA_LOG(4) << "passed ud create";
@@ -64,7 +64,6 @@ TEST(UD, Create) {
 
   /************************************/
 
-
   /** send the messages **/
   // 1. create the ah
   auto ah = ud->create_ah(ud->my_attr());
@@ -72,11 +71,11 @@ TEST(UD, Create) {
 
   // 2. prepare the send request
   ibv_send_wr wr;
-  ibv_sge    sge;
+  ibv_sge sge;
 
   wr.opcode = IBV_WR_SEND_WITH_IMM;
   wr.num_sge = 1;
-  wr.imm_data = 0;
+  wr.imm_data = 73;
   wr.next = nullptr;
   wr.sg_list = &sge;
 
@@ -86,14 +85,14 @@ TEST(UD, Create) {
   wr.send_flags = IBV_SEND_INLINE | IBV_SEND_SIGNALED;
 
   // 3. send 1024 messages
-  for(uint i = 0;i < 1024;++i) {
+  for (uint i = 0; i < 1024; ++i) {
     auto msg = ::rdmaio::Marshal::dump<u64>(i);
-    sge.addr   = (uintptr_t)(msg.data());
+    sge.addr = (uintptr_t)(msg.data());
     sge.length = sizeof(u64);
     // no key is set in sge because the message is inlined
 
     struct ibv_send_wr *bad_sr = nullptr;
-    auto ret = ud->send(wr,1,&bad_sr);
+    auto ret = ud->send(wr, 1, &bad_sr);
     if (ret != IOCode::Ok)
       RDMA_LOG(4) << "post send error:" << strerror(ret.desc) << "; at: " << i;
 
@@ -104,6 +103,21 @@ TEST(UD, Create) {
 
   // start to recv message
   sleep(1);
+
+  // finally we check the messages
+  uint recved_msgs = 0;
+  for (RecvIter iter(ud, recv_rs); iter.has_msgs(); iter.next()) {
+    // check message content
+    auto imm_msg = iter.cur_msg().value();
+    auto buf = static_cast<char *>(std::get<1>(imm_msg));
+    auto res = ::rdmaio::Marshal::dedump<u64>(buf);
+
+    ASSERT_EQ(std::get<0>(imm_msg), 73);
+    ASSERT_EQ(res, recved_msgs);
+
+    recved_msgs += 1;
+  }
+  ASSERT_EQ(recved_msgs, 1024);
 }
 
 } // namespace test

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "./mod.hh"
-#include "./impl.hh"
-#include "./recv_helper.hh"
 #include "./config.hh"
+#include "./impl.hh"
+#include "./mod.hh"
+#include "./recv_helper.hh"
 
 namespace rdmaio {
 
@@ -25,6 +25,12 @@ class UD : public Dummy {
 
   const usize kMaxUdRecvEntries = 2048;
 
+  /*!
+    40 bytes reserved for GRH, found in
+    https://www.rdmamojo.com/2013/02/15/ibv_poll_cq/
+  */
+  const usize kGRHSz = 40;
+
 public:
   const QPConfig my_config;
 
@@ -43,7 +49,7 @@ public:
     - Ok: -
    */
   template <usize entries>
-  Result<int> post_recvs(RecvEntries<entries> &r,int num) {
+  Result<int> post_recvs(RecvEntries<entries> &r, int num) {
 
     RDMA_ASSERT(num <= my_config.max_recv_size);
 
@@ -54,7 +60,7 @@ public:
 
     // really post the recvs
     struct ibv_recv_wr *bad_rr;
-    auto rc = ibv_post_recv(this->qp,r.header_ptr(), &bad_rr);
+    auto rc = ibv_post_recv(this->qp, r.header_ptr(), &bad_rr);
 
     if (rc != 0)
       return Err(errno);
@@ -165,7 +171,6 @@ private:
     rc = ibv_modify_qp(qp, &qp_attr, flags);
     return rc == 0;
   }
-
 };
 } // namespace qp
 
