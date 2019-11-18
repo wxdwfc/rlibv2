@@ -1,6 +1,9 @@
 #pragma once
 
 #include "./mod.hh"
+#include "./impl.hh"
+#include "./recv_helper.hh"
+#include "./config.hh"
 
 namespace rdmaio {
 
@@ -20,7 +23,7 @@ class UD : public Dummy {
   */
   const usize kMaxMsgSz = 4000;
 
-  usize pending_reqs = 0;
+  const usize kMaxUdRecvEntries = 2048;
 
 public:
   const QPConfig my_config;
@@ -32,9 +35,64 @@ public:
     return {};
   }
 
-  inline usize get_pending_reqs() const { return pending_reqs; }
+  /*!
+    Post *num* recv entries to the QP, start at entries.header
 
-  Result<std::string> send() { return Err(std::string("not implemented")); }
+    \ret
+    - Err: errono
+    - Ok: -
+   */
+  template <usize entries>
+  Result<int> post_recvs(RecvEntries<entries> &r,int num) {
+
+    RDMA_ASSERT(num <= my_config.max_recv_size);
+
+    auto tail = r.header + num - 1;
+    if (tail >= entries)
+      tail -= entries;
+    auto temp = std::exchange((r.rs + tail)->next, nullptr);
+
+    // really post the recvs
+    struct ibv_recv_wr *bad_rr;
+    auto rc = ibv_post_recv(this->qp,r.header_ptr(), &bad_rr);
+
+    if (rc != 0)
+      return Err(errno);
+
+    // re-set the header, tailer
+    r.wr_ptr(tail)->next = temp;
+    r.header = (tail + 1) % entries;
+
+    return Ok(0);
+  }
+
+  QPAttr my_attr() const {
+    return {.addr = nic->addr.value(),
+            .lid = nic->lid.value(),
+            .psn = static_cast<u64>(my_config.rq_psn),
+            .port_id = static_cast<u64>(nic->id.port_id),
+            .qpn = static_cast<u64>(qp->qp_num),
+            .qkey = static_cast<u64>(0)};
+  }
+
+  /*!
+    create address handler from a QP attribute
+   */
+  ibv_ah *create_ah(const QPAttr &attr) {
+    struct ibv_ah_attr ah_attr;
+    ah_attr.is_global = 1;
+    ah_attr.dlid = attr.lid;
+    ah_attr.sl = 0;
+    ah_attr.src_path_bits = 0;
+    ah_attr.port_num = attr.port_id;
+
+    ah_attr.grh.dgid.global.subnet_prefix = attr.addr.subnet_prefix;
+    ah_attr.grh.dgid.global.interface_id = attr.addr.interface_id;
+    ah_attr.grh.flow_label = 0;
+    ah_attr.grh.hop_limit = 255;
+    ah_attr.grh.sgid_index = nic->addr.value().local_id;
+    return ibv_create_ah(nic->get_pd(), &ah_attr);
+  }
 
 private:
   UD(Arc<RNic> nic, const QPConfig &config) : Dummy(nic), my_config(config) {

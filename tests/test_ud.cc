@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include "../core/nicinfo.hh"
+
 #include "../core/qps/ud.hh"
 #include "../core/qps/recv_helper.hh"
-#include "../core/nicinfo.hh"
+
+#include "../core/utils/marshal.hh"
 
 namespace test {
 
@@ -39,24 +42,68 @@ TEST(UD, Create) {
   auto ud = UD::create(nic,QPConfig()).value();
   ASSERT_TRUE(ud->valid());
 
+  RDMA_LOG(4) << "passed ud create";
+
   // prepare the message buf
   auto mem =
-      Arc<RMem>(new RMem(4 * 1024 * 1024)); // allocate a memory with 4M bytes
+      Arc<RMem>(new RMem(16 * 1024 * 1024)); // allocate a memory with 4M bytes
   ASSERT_TRUE(mem->valid());
 
   auto handler = RegHandler::create(mem, nic).value();
   SimpleAllocator alloc(mem, handler->get_reg_attr().value().key);
 
-  // prepare buffer
-  auto recv_rs = RecvEntriesFactory<SimpleAllocator, 16, 4096>::create(alloc);
+  // prepare buffer, contain 16 recv entries, each has 4096 bytes
+  auto recv_rs = RecvEntriesFactory<SimpleAllocator, 2048, 4096>::create(alloc);
   RDMA_LOG(2) << "recv rs: " << recv_rs.header;
 
   // post these recvs to the UD
+  {
+    auto res = ud->post_recvs(recv_rs, 2048);
+    RDMA_ASSERT(res == IOCode::Ok);
+  }
 
   /************************************/
 
 
   /** send the messages **/
+  // 1. create the ah
+  auto ah = ud->create_ah(ud->my_attr());
+  ASSERT_NE(nullptr, ah);
+
+  // 2. prepare the send request
+  ibv_send_wr wr;
+  ibv_sge    sge;
+
+  wr.opcode = IBV_WR_SEND_WITH_IMM;
+  wr.num_sge = 1;
+  wr.imm_data = 0;
+  wr.next = nullptr;
+  wr.sg_list = &sge;
+
+  wr.wr.ud.ah = ah;
+  wr.wr.ud.remote_qpn = ud->my_attr().qpn;
+  wr.wr.ud.remote_qkey = ud->my_attr().qkey;
+  wr.send_flags = IBV_SEND_INLINE | IBV_SEND_SIGNALED;
+
+  // 3. send 1024 messages
+  for(uint i = 0;i < 1024;++i) {
+    auto msg = ::rdmaio::Marshal::dump<u64>(i);
+    sge.addr   = (uintptr_t)(msg.data());
+    sge.length = sizeof(u64);
+    // no key is set in sge because the message is inlined
+
+    struct ibv_send_wr *bad_sr = nullptr;
+    auto ret = ud->send(wr,1,&bad_sr);
+    if (ret != IOCode::Ok)
+      RDMA_LOG(4) << "post send error:" << strerror(ret.desc) << "; at: " << i;
+
+    // wait one completion
+    auto ret_r = ud->wait_one_comp();
+    RDMA_ASSERT(ret_r == IOCode::Ok);
+  }
+
+  // start to recv message
+  sleep(1);
 }
 
 } // namespace test

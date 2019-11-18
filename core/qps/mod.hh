@@ -13,6 +13,29 @@ namespace qp {
 
 const usize kMaxInlinSz = 64;
 
+using ProgressMark_t = u16;
+// Track the out-going and acknowledged reqs
+struct Progress {
+  static constexpr const u32 num_progress_bits = sizeof(ProgressMark_t) * 8;
+
+  ProgressMark_t high_watermark = 0;
+  ProgressMark_t low_watermark = 0;
+
+  ProgressMark_t forward(ProgressMark_t num) {
+    high_watermark += num;
+    return high_watermark;
+  }
+
+  void done(int num) { low_watermark = num; }
+
+  ProgressMark_t pending_reqs() const {
+    if (high_watermark >= low_watermark)
+      return high_watermark - low_watermark;
+    return std::numeric_limits<ProgressMark_t>::max() -
+           (low_watermark - high_watermark) + 1;
+  }
+};
+
 class Dummy {
 public:
   struct ibv_qp *qp = nullptr;
@@ -33,6 +56,21 @@ public:
   explicit Dummy(Arc<RNic> nic) : nic(nic) {}
 
   bool valid() const { return qp != nullptr && cq != nullptr; }
+
+  /*!
+    Send the requests specificed by the sr
+    \ret: errno
+
+    \note: this message do **nothing** to check the parameters
+   */
+  Result<int> send(ibv_send_wr &sr, const usize &num,ibv_send_wr **bad_sr) {
+    auto rc = ibv_post_send(qp, &sr, bad_sr);
+    if (rc == 0) {
+      // ok
+      return Ok(0);
+    }
+    return Err(errno);
+  }
 
   /*!
     Poll one completion from the send_cq
@@ -93,35 +131,13 @@ struct __attribute__((packed)) QPAttr {
   u64 qkey;
 };
 
-using ProgressMark_t = u16;
-// Track the out-going and acknowledged reqs
-struct Progress {
-  static constexpr const u32 num_progress_bits = sizeof(ProgressMark_t) * 8;
-
-  ProgressMark_t high_watermark = 0;
-  ProgressMark_t low_watermark = 0;
-
-  ProgressMark_t forward(ProgressMark_t num) {
-    high_watermark += num;
-    return high_watermark;
-  }
-
-  void done(int num) { low_watermark = num; }
-
-  ProgressMark_t pending_reqs() const {
-    if (high_watermark >= low_watermark)
-      return high_watermark - low_watermark;
-    return std::numeric_limits<ProgressMark_t>::max() -
-           (low_watermark - high_watermark) + 1;
-  }
-};
 
 } // namespace qp
 
 } // namespace rdmaio
 
 #include "rc.hh"
-//#include "ud.hh"
+#include "ud.hh"
 
 namespace rdmaio {
 namespace qp {

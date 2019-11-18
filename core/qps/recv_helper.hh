@@ -21,6 +21,15 @@ template <usize entries> struct RecvEntries {
     current recv entry which points to one position in *rs*
   */
   usize header = 0;
+
+  ibv_recv_wr *wr_ptr(const usize &idx) {
+    // idx should be in [0,entries)
+    return rs + idx;
+  }
+
+  ibv_recv_wr *header_ptr() {
+    return wr_ptr(header);
+  }
 };
 
 // AbsAllocator must inherit from *AbsRecvAllocator* defined in
