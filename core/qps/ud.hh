@@ -1,8 +1,8 @@
 #pragma once
 
 #include "./config.hh"
-#include "./impl.hh"
 #include "./mod.hh"
+#include "./impl.hh"
 #include "./recv_helper.hh"
 
 namespace rdmaio {

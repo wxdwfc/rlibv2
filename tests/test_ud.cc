@@ -106,11 +106,11 @@ TEST(UD, Create) {
 
   // finally we check the messages
   uint recved_msgs = 0;
-  for (RecvIter iter(ud, recv_rs); iter.has_msgs(); iter.next()) {
+  for (RecvIter<UD,2048> iter(ud, recv_rs); iter.has_msgs(); iter.next()) {
     // check message content
     auto imm_msg = iter.cur_msg().value();
     auto buf = static_cast<char *>(std::get<1>(imm_msg));
-    auto res = ::rdmaio::Marshal::dedump<u64>(buf);
+    auto res = ::rdmaio::Marshal::dedump<u64>(buf).value();
 
     ASSERT_EQ(std::get<0>(imm_msg), 73);
     ASSERT_EQ(res, recved_msgs);

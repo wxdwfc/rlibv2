@@ -113,11 +113,11 @@ private:                                                                       \
   classname &operator=(const classname &) = delete
 #endif
 
-#ifndef unlikely(x)
+#ifndef unlikely
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #endif
 
-#ifndef likely(x)
+#ifndef likely
 #define likely(x) __builtin_expect(!!(x), 1)
 #endif
 
