@@ -69,6 +69,8 @@ public:
     r.wr_ptr(tail)->next = temp;
     r.header = (tail + 1) % entries;
 
+    RDMA_LOG(4) << "after post recv, header:" << r.header;
+
     return Ok(0);
   }
 
@@ -78,7 +80,7 @@ public:
             .psn = static_cast<u64>(my_config.rq_psn),
             .port_id = static_cast<u64>(nic->id.port_id),
             .qpn = static_cast<u64>(qp->qp_num),
-            .qkey = static_cast<u64>(0)};
+            .qkey = static_cast<u64>(my_config.qkey)};
   }
 
   /*!
@@ -117,16 +119,17 @@ private:
       RDMA_LOG(4) << "Error on creating recv CQ: " << std::get<1>(res.desc);
       return;
     }
-    this->recv_cq = std::get<0>(res.desc);
 
-    // this is a trick: if recv qp is null, than qp must be null
+    this->recv_cq = std::get<0>(res_recv.desc);
+
     auto res_qp =
         Impl::create_qp(nic, IBV_QPT_UD, my_config, this->cq, this->recv_cq);
     if (res_qp != IOCode::Ok) {
-      RDMA_LOG(4) << "Error on creating UD QP: " << std::get<1>(res.desc);
+      RDMA_LOG(4) << "Error on creating UD QP: " << std::get<1>(res_qp.desc);
       return;
     }
     this->qp = std::get<0>(res_qp.desc);
+    RDMA_LOG(4) << "send cq: " << this->cq << "; recv cq: " << this->recv_cq;
 
     // finally, change it to ready_to_recv & ready_to_send
     if (valid()) {
@@ -145,8 +148,12 @@ private:
       // 2. change to ready_to_recv
       if (!bring_ud_to_recv(this->qp) ||
           !bring_ud_to_send(this->qp, this->my_config.rq_psn)) {
+        RDMA_ASSERT(false);
         this->cq = nullptr; // make my status invalid
       }
+
+      auto res = qp_status();
+      RDMA_LOG(4) << "qp status: " << res.code.name() << " " << ": " << res.desc << " " << IBV_QPS_RTS;
     }
     // done, UD create done
   }

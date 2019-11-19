@@ -30,6 +30,16 @@ template <usize entries> struct RecvEntries {
   ibv_recv_wr *header_ptr() {
     return wr_ptr(header);
   }
+
+  void sanity_check() {
+    for(uint i = 0;i < entries - 1;++i) {
+      RDMA_ASSERT((u64)(wr_ptr(i)->next) == (u64)(wr_ptr(i+1)));
+      RDMA_ASSERT((u64)(wr_ptr(i)->sg_list) == (u64)(&sges[i]));
+      RDMA_ASSERT(wr_ptr(i)->num_sge == 1);
+      //RDMA_LOG(2) << "sz: " << sges[i].length;
+    }
+    RDMA_LOG(2) << "Sanity check passes";
+  }
 };
 
 // AbsAllocator must inherit from *AbsRecvAllocator* defined in
@@ -37,24 +47,28 @@ template <usize entries> struct RecvEntries {
 template <class AbsAllocator, usize entries, usize entry_sz>
 class RecvEntriesFactory {
 public:
-  inline static RecvEntries<entries> create(AbsAllocator &allocator) {
-    RecvEntries<entries> ret;
+  static Arc<RecvEntries<entries>> create(AbsAllocator &allocator) {
+
+    Arc<RecvEntries<entries>> ret(new RecvEntries<entries>);
 
     for (uint i = 0; i < entries; ++i) {
       auto recv_buf = allocator.alloc_one(entry_sz).value();
 
+      RDMA_LOG(4) << "post recv : " << std::get<0>(recv_buf) << " "
+                  << std::get<1>(recv_buf) << " entry sz: " << entry_sz;
       struct ibv_sge sge = {
           .addr = reinterpret_cast<uintptr_t>(std::get<0>(recv_buf)),
-          .length = entry_sz,
+          .length = static_cast<u32>(entry_sz),
           .lkey = std::get<1>(recv_buf)};
 
       { // unsafe code
-        ret.rs[i].wr_id = sge.addr;
-        ret.rs[i].sg_list = &ret.sges[i];
-        ret.rs[i].num_sge = 1;
-        ret.rs[i].next = (i < entries) ? (&(ret.rs[i + 1])) : (&(ret.rs[0]));
+        ret->rs[i].wr_id = sge.addr;
+        ret->rs[i].sg_list = &(ret->sges[i]);
+        ret->rs[i].num_sge = 1;
+        ret->rs[i].next =
+            (i < entries - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
 
-        ret.sges[i] = sge;
+        ret->sges[i] = sge;
       }
     }
     return ret;

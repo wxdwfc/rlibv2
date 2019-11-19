@@ -120,8 +120,9 @@ public:
                                                        "CQ passed in as null"));
     }
 
-    if (recv_cq == nullptr)
+    if (recv_cq == nullptr) {
       recv_cq = cq;
+    }
 
     struct ibv_qp_init_attr qp_init_attr = {};
 

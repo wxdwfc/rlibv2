@@ -82,6 +82,10 @@ public:
     return std::make_pair(poll_result,wc);
   }
 
+  static std::string wc_status(const ibv_wc &wc) {
+    return std::string(ibv_wc_status_str(wc.status));
+  }
+
   /*!
     do a loop to poll one completion from the send_cq.
     \note timeout is measured in microseconds

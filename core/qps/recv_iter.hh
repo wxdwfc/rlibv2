@@ -17,7 +17,7 @@ namespace qp {
   RecvEntries<12> entries;
 
   for(RecvIter iter(ud, entries); iter.has_msgs(); iter.next()) {
-    auto imm_data, msg_buf = iter.cur_msg(); // relax some syntax
+    auto imm_data, msg_buf = iter.cur_msg(); // relax some syntax to fetch pair
     // do with imm_data and msg_buf
   }
   `
@@ -27,12 +27,15 @@ template <typename QP, usize es> class RecvIter {
   RecvEntries<es> *entries;
 
   int idx = 0;
-  const int total_msgs = 0;
+  const int total_msgs = -1;
 
 public:
-  RecvIter(Arc<QP> &qp, RecvEntries<es> &entries)
-      : qp(qp.get()), entries(&entries),
-        total_msgs(ibv_poll_cq(qp->recv_cq, es, this->entries->wcs)) {}
+  RecvIter(Arc<QP> &qp, Arc<RecvEntries<es>> &entries)
+      : qp(qp.get()), entries(entries.get()),
+        total_msgs(ibv_poll_cq(qp->recv_cq, es, this->entries->wcs)) {
+    RDMA_LOG(4) << "ud recv sz: " << total_msgs << " " << es
+                << "; use reccv q:" << qp->recv_cq;
+  }
 
   /*!
     \ret (imm_data, recv_buffer)
