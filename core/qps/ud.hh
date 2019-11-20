@@ -9,6 +9,8 @@ namespace rdmaio {
 
 namespace qp {
 
+const usize kGRHSz = 40;
+
 /*!
   an abstraction of unreliable datagram
   example usage:
@@ -17,6 +19,7 @@ namespace qp {
   `
  */
 class UD : public Dummy {
+public:
   /*!
     a msg should fill in one packet (4096 bytes); some bytes are reserved
     for header (GRH size)
@@ -29,9 +32,6 @@ class UD : public Dummy {
     40 bytes reserved for GRH, found in
     https://www.rdmamojo.com/2013/02/15/ibv_poll_cq/
   */
-  const usize kGRHSz = 40;
-
-public:
   const QPConfig my_config;
 
   static Option<Arc<UD>> create(Arc<RNic> nic, const QPConfig &config) {
@@ -68,8 +68,6 @@ public:
     // re-set the header, tailer
     r.wr_ptr(tail)->next = temp;
     r.header = (tail + 1) % entries;
-
-    RDMA_LOG(4) << "after post recv, header:" << r.header;
 
     return Ok(0);
   }
@@ -129,7 +127,6 @@ private:
       return;
     }
     this->qp = std::get<0>(res_qp.desc);
-    RDMA_LOG(4) << "send cq: " << this->cq << "; recv cq: " << this->recv_cq;
 
     // finally, change it to ready_to_recv & ready_to_send
     if (valid()) {
@@ -151,9 +148,6 @@ private:
         RDMA_ASSERT(false);
         this->cq = nullptr; // make my status invalid
       }
-
-      auto res = qp_status();
-      RDMA_LOG(4) << "qp status: " << res.code.name() << " " << ": " << res.desc << " " << IBV_QPS_RTS;
     }
     // done, UD create done
   }

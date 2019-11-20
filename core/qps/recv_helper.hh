@@ -36,9 +36,7 @@ template <usize entries> struct RecvEntries {
       RDMA_ASSERT((u64)(wr_ptr(i)->next) == (u64)(wr_ptr(i+1)));
       RDMA_ASSERT((u64)(wr_ptr(i)->sg_list) == (u64)(&sges[i]));
       RDMA_ASSERT(wr_ptr(i)->num_sge == 1);
-      //RDMA_LOG(2) << "sz: " << sges[i].length;
     }
-    RDMA_LOG(2) << "Sanity check passes";
   }
 };
 
@@ -54,8 +52,6 @@ public:
     for (uint i = 0; i < entries; ++i) {
       auto recv_buf = allocator.alloc_one(entry_sz).value();
 
-      RDMA_LOG(4) << "post recv : " << std::get<0>(recv_buf) << " "
-                  << std::get<1>(recv_buf) << " entry sz: " << entry_sz;
       struct ibv_sge sge = {
           .addr = reinterpret_cast<uintptr_t>(std::get<0>(recv_buf)),
           .length = static_cast<u32>(entry_sz),

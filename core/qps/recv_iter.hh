@@ -33,8 +33,6 @@ public:
   RecvIter(Arc<QP> &qp, Arc<RecvEntries<es>> &entries)
       : qp(qp.get()), entries(entries.get()),
         total_msgs(ibv_poll_cq(qp->recv_cq, es, this->entries->wcs)) {
-    RDMA_LOG(4) << "ud recv sz: " << total_msgs << " " << es
-                << "; use reccv q:" << qp->recv_cq;
   }
 
   /*!
@@ -42,7 +40,7 @@ public:
     */
   Option<std::pair<u32,rmem::RMem::raw_ptr_t>> cur_msg() const {
     if (has_msgs()) {
-      auto buf = reinterpret_cast <rmem::RMem::raw_ptr_t>(entries->wcs[idx].imm_data);
+      auto buf = reinterpret_cast <rmem::RMem::raw_ptr_t>(entries->wcs[idx].wr_id);
       return std::make_pair(entries->wcs[idx].imm_data,buf);
     }
     return {};

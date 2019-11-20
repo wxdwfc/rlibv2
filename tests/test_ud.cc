@@ -44,8 +44,6 @@ TEST(UD, Create) {
   auto ud = UD::create(nic, QPConfig()).value();
   ASSERT_TRUE(ud->valid());
 
-  RDMA_LOG(4) << "passed ud create";
-
   // prepare the message buf
   auto mem =
       Arc<RMem>(new RMem(16 * 1024 * 1024)); // allocate a memory with 4M bytes
@@ -55,12 +53,12 @@ TEST(UD, Create) {
   SimpleAllocator alloc(mem, handler->get_reg_attr().value().key);
 
   // prepare buffer, contain 16 recv entries, each has 4096 bytes
-  auto recv_rs = RecvEntriesFactory<SimpleAllocator, 12, 1000>::create(alloc);
+  auto recv_rs = RecvEntriesFactory<SimpleAllocator, 1024, 1000>::create(alloc);
 
   // post these recvs to the UD
   {
     recv_rs->sanity_check();
-    auto res = ud->post_recvs(*recv_rs, 12);
+    auto res = ud->post_recvs(*recv_rs, 1024);
     RDMA_ASSERT(res == IOCode::Ok);
   }
 
@@ -88,7 +86,7 @@ TEST(UD, Create) {
   //wr.send_flags = IBV_SEND_SIGNALED;
 
   // 3. send 1024 messages
-  for (uint i = 0; i < 64; ++i) {
+  for (uint i = 0; i < 1024; ++i) {
     auto msg = ::rdmaio::Marshal::dump<u64>(i);
     sge.addr = (uintptr_t)(msg.data());
     sge.length = sizeof(u64);
@@ -96,34 +94,21 @@ TEST(UD, Create) {
 
     struct ibv_send_wr *bad_sr = nullptr;
     ASSERT_EQ(ibv_post_send(ud->qp,&wr,&bad_sr),0);
-    //auto ret = ud->send(wr, 1, &bad_sr);
-    //if (ret != IOCode::Ok)
-    //      RDMA_LOG(4) << "post send error:" << strerror(ret.desc) << "; at: " << i;
 
     // wait one completion
-    //auto ret_r = ud->wait_one_comp();
-    //RDMA_ASSERT(ret_r == IOCode::Ok) << UD::wc_status(ret_r.desc);
+    auto ret_r = ud->wait_one_comp();
+    RDMA_ASSERT(ret_r == IOCode::Ok) << UD::wc_status(ret_r.desc);
   }
   // start to recv message
   sleep(1);
 
-  for(uint i = 0;i < 12;++i)
-    RDMA_LOG(2) << "pre check imm data:" << recv_rs->wcs[i].imm_data;
-
-  do {
-    RDMA_LOG(4) << "try poll: " << ibv_poll_cq(ud->recv_cq,1,recv_rs->wcs);
-    sleep(1);
-  } while (1);
-
   // finally we check the messages
   uint recved_msgs = 0;
-  for (RecvIter<UD,12> iter(ud, recv_rs); iter.has_msgs(); iter.next()) {
-    RDMA_LOG(2) << "in imm msg";
+  for (RecvIter<UD,1024> iter(ud, recv_rs); iter.has_msgs(); iter.next()) {
     // check message content
     auto imm_msg = iter.cur_msg().value();
-    RDMA_LOG(2) << "decode imm data: " << std::get<0>(imm_msg);
 
-    auto buf = static_cast<char *>(std::get<1>(imm_msg));
+    auto buf = static_cast<char *>(std::get<1>(imm_msg)) + kGRHSz;
     auto res = ::rdmaio::Marshal::dedump<u64>(std::string(buf,128)).value();
 
     ASSERT_EQ(std::get<0>(imm_msg), 73);
