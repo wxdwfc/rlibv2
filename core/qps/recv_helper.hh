@@ -9,13 +9,13 @@ namespace qp {
 /*!
   helper data struture for two-sided QP recv
  */
-template <usize entries> struct RecvEntries {
+template <usize N> struct RecvEntries {
   /*!
    internal data structure used for send/recv verbs
   */
-  struct ibv_recv_wr rs[entries];
-  struct ibv_sge sges[entries];
-  struct ibv_wc wcs[entries];
+  struct ibv_recv_wr rs[N];
+  struct ibv_sge sges[N];
+  struct ibv_wc wcs[N];
 
   /*!
     current recv entry which points to one position in *rs*
@@ -23,7 +23,7 @@ template <usize entries> struct RecvEntries {
   usize header = 0;
 
   ibv_recv_wr *wr_ptr(const usize &idx) {
-    // idx should be in [0,entries)
+    // idx should be in [0,N)
     return rs + idx;
   }
 
@@ -32,7 +32,7 @@ template <usize entries> struct RecvEntries {
   }
 
   void sanity_check() {
-    for(uint i = 0;i < entries - 1;++i) {
+    for(uint i = 0;i < N - 1;++i) {
       RDMA_ASSERT((u64)(wr_ptr(i)->next) == (u64)(wr_ptr(i+1)));
       RDMA_ASSERT((u64)(wr_ptr(i)->sg_list) == (u64)(&sges[i]));
       RDMA_ASSERT(wr_ptr(i)->num_sge == 1);
@@ -42,14 +42,14 @@ template <usize entries> struct RecvEntries {
 
 // AbsAllocator must inherit from *AbsRecvAllocator* defined in
 // abs_recv_allocator.hh
-template <class AbsAllocator, usize entries, usize entry_sz>
+template <class AbsAllocator, usize N, usize entry_sz>
 class RecvEntriesFactory {
 public:
-  static Arc<RecvEntries<entries>> create(AbsAllocator &allocator) {
+  static Arc<RecvEntries<N>> create(AbsAllocator &allocator) {
 
-    Arc<RecvEntries<entries>> ret(new RecvEntries<entries>);
+    Arc<RecvEntries<N>> ret(new RecvEntries<N>);
 
-    for (uint i = 0; i < entries; ++i) {
+    for (uint i = 0; i < N; ++i) {
       auto recv_buf = allocator.alloc_one(entry_sz).value();
 
       struct ibv_sge sge = {
@@ -62,7 +62,7 @@ public:
         ret->rs[i].sg_list = &(ret->sges[i]);
         ret->rs[i].num_sge = 1;
         ret->rs[i].next =
-            (i < entries - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
+            (i < N - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
 
         ret->sges[i] = sge;
       }
