@@ -36,6 +36,19 @@ struct Progress {
   }
 };
 
+/*!
+  Below structures are make packed to allow communicating
+  between servers
+ */
+struct __attribute__((packed)) QPAttr {
+  RAddress addr;
+  u64 lid;
+  u64 psn;
+  u64 port_id;
+  u64 qpn;
+  u64 qkey;
+};
+
 class Dummy {
 public:
   struct ibv_qp *qp = nullptr;
@@ -52,6 +65,8 @@ public:
           << "Failed to destroy QP " << strerror(errno);
     }
   }
+
+  virtual QPAttr my_attr() const = 0;
 
   explicit Dummy(Arc<RNic> nic) : nic(nic) {}
 
@@ -122,20 +137,6 @@ public:
 
 };
 
-/*!
-  Below structures are make packed to allow communicating
-  between servers
- */
-struct __attribute__((packed)) QPAttr {
-  RAddress addr;
-  u64 lid;
-  u64 psn;
-  u64 port_id;
-  u64 qpn;
-  u64 qkey;
-};
-
-
 } // namespace qp
 
 } // namespace rdmaio
@@ -151,5 +152,10 @@ class RC;
 // shall we use a string to identify QPs?
 using register_id_t = u64;
 using RCFactory = Factory<register_id_t, RC>;
+
+using QPFactory = Factory<std::string, Dummy>;
+
+const usize kMaxQPNameLen = 63; // the name to index a QP in Factory should be less than 63 bytes
+
 } // namespace qp
 } // namespace rdmaio

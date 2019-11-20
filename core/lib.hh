@@ -80,13 +80,24 @@ public:
     return Timeout(std::string("retry exceeds num"));
   }
 
-  Result<std::string> delete_remote_rc(const ::rdmaio::qp::register_id_t &id,
+  Result<std::string> delete_remote_rc(const std::string &name,
                                        const u64 &key,
                                        const double &timeout_usec = 1000000) {
-    auto res = rpc.call(
-        proto::DeleteRC,
-        ::rdmaio::Marshal::dump<proto::DelRCReq>({.id = id, .key = key}));
+
+    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen))
+      return ::rdmaio::Err(std::string("name to long"));
+
+    proto::DelRCReq req = {};
+    memcpy(req.name, name.data(), name.size());
+    req.key = key;
+
+    auto res = rpc.call(proto::DeleteRC,
+                        ::rdmaio::Marshal::dump<proto::DelRCReq>(req));
+    if (unlikely(res != IOCode::Ok))
+      return res;
+
     auto res_reply = rpc.receive_reply(timeout_usec);
+
     if (res_reply == IOCode::Ok) {
       try {
         auto qp_reply =
@@ -115,50 +126,70 @@ public:
     - id: the remote naming of this QP
     - nic_id: the remote NIC used for connect the pair QP
    */
-  Result<std::string> cc_rc(const ::rdmaio::qp::register_id_t &id,
-                            const Arc<::rdmaio::qp::RC> rc, u64 &key,
+  using cc_rc_ret_t = std::pair<std::string, u64>;
+  Result<cc_rc_ret_t> cc_rc(const std::string &name,
+                            const Arc<::rdmaio::qp::RC> rc,
                             const ::rdmaio::nic_id_t &nic_id,
                             const ::rdmaio::qp::QPConfig &config,
                             const double &timeout_usec = 1000000) {
 
-    auto res = rpc.call(proto::CreateRC, ::rdmaio::Marshal::dump<proto::RCReq>(
-                                             {.id = id,
-                                              .whether_create = 1,
-                                              .nic_id = nic_id,
-                                              .config = config,
-                                              .attr = rc->my_attr()}));
-    auto res_reply = rpc.receive_reply(timeout_usec);
+    auto err_str = std::string("unknown error");
+    u64  temp_key = 0;
 
-    Result<std::string> ret = ::rdmaio::Err(std::string(""));
+    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)){
+      err_str = "name to long";
+      goto ErrCase;
+    }
 
-    if (res_reply == IOCode::Ok) {
-      try {
-        auto qp_reply =
-            ::rdmaio::Marshal::dedump<RCReply>(res_reply.desc).value();
-        switch (qp_reply.status) {
-        case proto::CallbackStatus::Ok: {
-          ret = rc->connect(qp_reply.attr);
-          if (ret != IOCode::Ok)
+    {
+      proto::RCReq req = {};
+      memcpy(req.name, name.data(), name.size());
+      req.whether_create = 1;
+      req.nic_id = nic_id;
+      req.config = config;
+      req.attr = rc->my_attr();
+
+      auto res =
+          rpc.call(proto::CreateRC, ::rdmaio::Marshal::dump<proto::RCReq>(req));
+
+      if (unlikely(res != IOCode::Ok)) {
+        err_str = res.desc;
+        goto ErrCase;
+      }
+
+      auto res_reply = rpc.receive_reply(timeout_usec);
+
+      if (res_reply == IOCode::Ok) {
+        try {
+          auto qp_reply =
+              ::rdmaio::Marshal::dedump<RCReply>(res_reply.desc).value();
+          switch (qp_reply.status) {
+          case proto::CallbackStatus::Ok: {
+            auto ret = rc->connect(qp_reply.attr);
+            if (ret != IOCode::Ok) {
+              err_str = ret.desc;
+              goto ErrCase;
+            }
+            auto key = qp_reply.key;
+            return ::rdmaio::Ok(std::make_pair(std::string(""),key));
+          }
+          case proto::CallbackStatus::ConnectErr:
+            err_str = "Remote connect error";
             goto ErrCase;
-          key = qp_reply.key;
-          return ret;
+          case proto::CallbackStatus::WrongArg:
+            err_str = "Wrong arguments, possible the QP has exsists";
+            goto ErrCase;
+          default:
+            err_str = "unknown return status code";
+          }
+        } catch (std::exception &e) {
+          err_str = "Decode reply error";
         }
-        case proto::CallbackStatus::ConnectErr:
-          ret = ::rdmaio::Err(std::string("Remote connect error"));
-          goto ErrCase;
-        case proto::CallbackStatus::WrongArg:
-          ret = ::rdmaio::Err(std::string("Wrong arguments"));
-          goto ErrCase;
-        default:
-          ret = ::rdmaio::Err(std::string("Error return status code"));
-        }
-      } catch (std::exception &e) {
-        ret = ::rdmaio::Err(std::string("Decode reply"));
       }
     }
 
   ErrCase:
-    return ret;
+    return ::rdmaio::Err(std::make_pair(err_str,temp_key));
   }
 
   /*!

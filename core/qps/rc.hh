@@ -109,7 +109,7 @@ public:
     Get the attribute of this RC QP, so that others can connect to it.
     \note: this function would panic if the created context (nic) is not valid
    */
-  QPAttr my_attr() const {
+  QPAttr my_attr() const override {
     return {.addr = nic->addr.value(),
             .lid = nic->lid.value(),
             .psn = static_cast<u64>(my_config.rq_psn),

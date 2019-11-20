@@ -72,7 +72,7 @@ public:
     return Ok(0);
   }
 
-  QPAttr my_attr() const {
+  QPAttr my_attr() const override {
     return {.addr = nic->addr.value(),
             .lid = nic->lid.value(),
             .psn = static_cast<u64>(my_config.rq_psn),

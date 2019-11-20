@@ -27,9 +27,8 @@ class RCtrl {
    */
 public:
   rmem::MRFactory registered_mrs;
-  qp::RCFactory registered_rcs;
+  qp::QPFactory registered_qps;
   Factory<nic_id_t,RNic> opened_nics;
-
 
   bootstrap::SRpcHandler rpc;
 
@@ -110,7 +109,7 @@ private:
     if (!rc_req_o)
       goto WA;
     {
-      auto del_res = registered_rcs.dereg(rc_req_o.value().id,
+      auto del_res = registered_qps.dereg(rc_req_o.value().name,
                                           rc_req_o.value().key);
       if (!del_res) {
         goto WA;
@@ -131,7 +130,7 @@ private:
     \ret: Marshalling RCReply to a Bytebuffer
    */
   ByteBuffer fetch_qp_attr(const proto::RCReq &req, const u64 &key) {
-    auto rc = registered_rcs.query(req.id);
+    auto rc = registered_qps.query(req.name);
     if (rc) {
       return ::rdmaio::Marshal::dump<proto::RCReply>(
           {.status = proto::CallbackStatus::Ok,
@@ -172,7 +171,7 @@ private:
 
         // 1.1 try to create and register this QP
         auto rc = qp::RC::create(nic.value(), rc_req.config).value();
-        auto rc_status = registered_rcs.reg(rc_req.id, rc);
+        auto rc_status = registered_qps.reg(rc_req.name, rc);
 
         if (!rc_status) {
           // clean up
@@ -182,7 +181,7 @@ private:
         // 1.2 finally we connect the QP
         if (rc->connect(rc_req.attr) != IOCode::Ok) {
           // in connect error
-          registered_rcs.dereg(rc_req.id, rc_status.value());
+          registered_qps.dereg(rc_req.name, rc_status.value());
           goto WA;
         }
         key = rc_status.value();

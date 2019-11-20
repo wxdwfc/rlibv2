@@ -49,7 +49,7 @@ struct __attribute__((packed)) MRReply {
  */
 struct __attribute__((packed)) RCReq {
   // parameter for querying the QP
-  ::rdmaio::qp::register_id_t id;
+  char name[::rdmaio::qp::kMaxQPNameLen + 1];
 
   u8 whether_create = 0; // 1: create the QP, 0 only query the QP attr
 
@@ -67,7 +67,8 @@ struct __attribute__((packed)) RCReply {
 
 struct __attribute__((packed)) DelRCReq {
   // parameter for querying the QP
-  ::rdmaio::qp::register_id_t id;
+  char name[::rdmaio::qp::kMaxQPNameLen + 1];
+
   u64 key;
 };
 

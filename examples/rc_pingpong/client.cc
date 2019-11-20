@@ -25,9 +25,9 @@ int main(int argc, char **argv) {
       IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
     RDMA_ASSERT(false) << "cm connect to server timeout";
 
-  u64 key = 0;
-  auto qp_res = cm.cc_rc(73, qp, key, FLAGS_reg_nic_name, QPConfig());
-  RDMA_ASSERT(qp_res == IOCode::Ok) << qp_res.desc;
+  auto qp_res = cm.cc_rc("client-qp", qp, FLAGS_reg_nic_name, QPConfig());
+  RDMA_ASSERT(qp_res == IOCode::Ok) << std::get<0>(qp_res.desc);
+  auto key = std::get<1>(qp_res.desc);
   RDMA_LOG(4) << "client fetch QP authentical key: " << key;
 
   // 3. create the local MR for usage, and create the remote MR for usage
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   /***********************************************************/
 
   // finally, some clean up, to delete my created QP at server
-  auto del_res = cm.delete_remote_rc(73, key);
+  auto del_res = cm.delete_remote_rc("client-qp", key);
   RDMA_ASSERT(del_res == IOCode::Ok)
       << "delete remote QP error: " << del_res.desc;
 
