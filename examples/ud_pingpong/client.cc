@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     memset(buf,0,msg.size() + 1);
     memcpy(buf,msg.data(),msg.size());
     sge.length = msg.size() + 1;
+    sge.lkey = mr->get_reg_attr().value().key;
 
     struct ibv_send_wr *bad_sr = nullptr;
     RDMA_ASSERT(ibv_post_send(ud->qp, &wr, &bad_sr) == 0);
