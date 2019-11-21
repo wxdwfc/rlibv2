@@ -235,46 +235,47 @@ public:
   Result<qp_attr_ret_t> fetch_qp_attr(const std::string &name,
                                       const double &timeout_usec = 1000000) {
     auto err_str = std::string("unknown error");
-
-    // 1. first, sanity check the arg
-    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)) {
-      err_str = err_name_to_long;
-      goto ErrCase;
-    }
-
-    auto req = QPReq();
-    memcpy(req.name, name.data(), name.size());
-
-    auto res = rpc.call(proto::RCtrlBinderIdType::FetchQPAttr,
-                        ::rdmaio::Marshal::dump<proto::QPAttr>(req));
-
-    if (unlikely(res != IOCode::Ok)) {
-      err_str = res.desc;
-      goto ErrCase;
-    }
-
-    auto res_reply = rpc.receive_reply(timeout_usec);
-    if (res_reply == IOCode::Ok) {
-      try {
-        auto qp_reply =
-            ::rdmaio::Marshal::dedump<proto::RCReply>(res_reply.desc).value();
-        switch (qp_reply.status) {
-        case proto::CallbackStatus::Ok:
-          return ::rdmaio::Ok(std::make_pair(std::string(""),qp_reply.attr));
-        case proto::CallbackStatus::NotFound:
-          return NotReady(std::make_pair(err_not_found,QPAttr()));
-        default:
-          err_str = err_unknown_status;
-        }
-
-      } catch (std::exception &e) {
-        err_str = err_decode_reply;
+    {
+      // 1. first, sanity check the arg
+      if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)) {
+        err_str = err_name_to_long;
+        goto ErrCase;
       }
 
-    } else
-      return ::rdmaio::transfer(res_reply,
-                                std::make_pair(res_reply.desc, QPAttr()));
+      auto req = QPReq();
+      memcpy(req.name, name.data(), name.size());
 
+      auto res = rpc.call(proto::RCtrlBinderIdType::FetchQPAttr,
+                          ::rdmaio::Marshal::dump<proto::QPReq>(req));
+
+      if (unlikely(res != IOCode::Ok)) {
+        err_str = res.desc;
+        goto ErrCase;
+      }
+
+      auto res_reply = rpc.receive_reply(timeout_usec);
+      if (res_reply == IOCode::Ok) {
+        try {
+          auto qp_reply =
+              ::rdmaio::Marshal::dedump<proto::RCReply>(res_reply.desc).value();
+          switch (qp_reply.status) {
+          case proto::CallbackStatus::Ok:
+            return ::rdmaio::Ok(std::make_pair(std::string(""), qp_reply.attr));
+          case proto::CallbackStatus::NotFound:
+            return NotReady(
+                std::make_pair(err_not_found, ::rdmaio::qp::QPAttr()));
+          default:
+            err_str = err_unknown_status;
+          }
+
+        } catch (std::exception &e) {
+          err_str = err_decode_reply;
+        }
+
+      } else
+        return ::rdmaio::transfer(
+            res_reply, std::make_pair(res_reply.desc, ::rdmaio::qp::QPAttr()));
+    }
   ErrCase:
     return ::rdmaio::Err(std::make_pair(err_str, ::rdmaio::qp::QPAttr()));
   }

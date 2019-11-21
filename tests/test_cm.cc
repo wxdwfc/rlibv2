@@ -1,10 +1,12 @@
 #include <gtest/gtest.h>
 
 #include "../core/lib.hh"
+#include "../core/qps/mod.hh"
 
 namespace test {
 
 using namespace rdmaio;
+using namespace rdmaio::qp;
 
 TEST(CM, MR) {
   RCtrl ctrl(8888);
@@ -44,6 +46,7 @@ TEST(CM, MR) {
 
 TEST(CM, QP) {
   RCtrl ctrl(8888);
+  ctrl.start_daemon();
 
   auto res = RNicInfo::query_dev_names();
   ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
@@ -60,8 +63,9 @@ TEST(CM, QP) {
     assert(false);
 
   auto fetch_qp_attr_res = cm.fetch_qp_attr("test_ud_qp");
-  RDMA_ASSERT(fetch_qp_attr_res.res == IOCode::Ok);
-  auto fetched_attr = std::get<1>(fetch_qp_attr_res);
+  RDMA_ASSERT(fetch_qp_attr_res == IOCode::Ok)
+      << "fetch qp attr error: " << std::get<0>(fetch_qp_attr_res.desc);
+  auto fetched_attr = std::get<1>(fetch_qp_attr_res.desc);
 
   // check the fetched attr matches the test_attr
   ASSERT_EQ(test_attr.lid,fetched_attr.lid);

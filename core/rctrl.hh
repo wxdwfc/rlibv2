@@ -1,7 +1,7 @@
 #pragma once
 
-#include "qps/mod.hh"
 #include "./rmem/handler.hh"
+#include "qps/mod.hh"
 
 #include "./bootstrap/srpc.hh"
 
@@ -28,7 +28,7 @@ class RCtrl {
 public:
   rmem::MRFactory registered_mrs;
   qp::QPFactory registered_qps;
-  Factory<nic_id_t,RNic> opened_nics;
+  Factory<nic_id_t, RNic> opened_nics;
 
   bootstrap::SRpcHandler rpc;
 
@@ -46,6 +46,10 @@ public:
     RDMA_ASSERT(rpc.register_handler(
         proto::DeleteRC,
         std::bind(&RCtrl::delete_rc, this, std::placeholders::_1)));
+
+    RDMA_ASSERT(rpc.register_handler(
+        proto::FetchQPAttr,
+        std::bind(&RCtrl::fetch_qp_attr_wrapper, this, std::placeholders::_1)));
   }
 
   /*!
@@ -109,8 +113,8 @@ private:
     if (!rc_req_o)
       goto WA;
     {
-      auto del_res = registered_qps.dereg(rc_req_o.value().name,
-                                          rc_req_o.value().key);
+      auto del_res =
+          registered_qps.dereg(rc_req_o.value().name, rc_req_o.value().key);
       if (!del_res) {
         goto WA;
       }
@@ -123,6 +127,16 @@ private:
   WA:
     return ::rdmaio::Marshal::dump<proto::RCReply>(
         {.status = proto::CallbackStatus::WrongArg});
+  }
+
+  ByteBuffer fetch_qp_attr_wrapper(const ByteBuffer &b) {
+    auto req_o = ::rdmaio::Marshal::dedump<proto::QPReq>(b);
+    if (!req_o)
+      return ::rdmaio::Marshal::dump<proto::RCReply>(
+          {.status = proto::CallbackStatus::WrongArg});
+    proto::RCReq req = {};
+    memcpy(req.name, req_o.value().name, ::rdmaio::qp::kMaxQPNameLen + 1);
+    return fetch_qp_attr(req, 0);
   }
 
   /*!

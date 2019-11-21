@@ -94,7 +94,7 @@ template <typename D = DummyDesc> inline Result<D> NotReady(const D &d = D()) {
 }
 
 template <typename A, typename B>
-inline Result<B> transfer(const Result<A> &a, const D &d) {
+inline Result<B> transfer(const Result<A> &a, const B &d) {
   return { .code = a.code, .desc = d };
 }
 
