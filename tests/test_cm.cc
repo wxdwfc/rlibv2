@@ -31,9 +31,9 @@ TEST(CM, MR) {
       IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
     assert(false);
 
-  rmem::RegAttr attr;
-  auto fetch_res = cm.fetch_remote_mr(73,attr);
-  RDMA_ASSERT(fetch_res == IOCode::Ok) << fetch_res.desc;
+  auto fetch_res = cm.fetch_remote_mr(73);
+  RDMA_ASSERT(fetch_res == IOCode::Ok) << std::get<0>(fetch_res.desc);
+  auto attr = std::get<1>(fetch_res.desc);
 
   // 4. check the remote fetched one is the same as the local copy
   auto local_mr = mr->get_reg_attr().value();
@@ -75,6 +75,8 @@ TEST(CM, QP) {
   ASSERT_EQ(test_attr.qkey, fetched_attr.qkey);
   ASSERT_EQ(fetched_attr.qkey,73);
   RDMA_LOG(2) << "qkey: " << 73;
+
+  ctrl.stop_daemon();
 }
 
 }// namespace test

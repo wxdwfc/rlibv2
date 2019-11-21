@@ -34,9 +34,9 @@ int main(int argc, char **argv) {
   auto local_mem = Arc<RMem>(new RMem(1024));
   auto local_mr = RegHandler::create(local_mem, nic).value();
 
-  rmem::RegAttr remote_attr;
-  auto fetch_res = cm.fetch_remote_mr(FLAGS_reg_mem_name, remote_attr);
-  RDMA_ASSERT(fetch_res == IOCode::Ok) << fetch_res.desc;
+  auto fetch_res = cm.fetch_remote_mr(FLAGS_reg_mem_name);
+  RDMA_ASSERT(fetch_res == IOCode::Ok) << std::get<0>(fetch_res.desc);
+  rmem::RegAttr remote_attr = std::get<1>(fetch_res.desc);
 
   qp->bind_remote_mr(remote_attr);
   qp->bind_local_mr(local_mr->get_reg_attr().value());

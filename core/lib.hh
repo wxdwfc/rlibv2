@@ -45,12 +45,11 @@ namespace rdmaio {
   if(cm.wait_ready(1000) == IOCode::Timeout) // wait 1 second for server to
   ready assert(false);
 
-  rmem::RegAttr attr;
-  auto mr_res = cm.fetch_remote_mr(1,attr); // fetch "localhost:1111"'s MR with
-  id
-  **1**
+  auto mr_res = cm.fetch_remote_mr(1,attr); // fetch "localhost:1111"'s MR with id **1**
+  // mr_res = Ok,Err,...(err_str, mr_attr)
   if (mr_res == IOCode::Ok) {
   // use attr ...
+     auto mr_attr = std::get<1>(mr_res.desc);
   }
   `
  */
@@ -200,9 +199,9 @@ public:
     Fetch remote MR identified with "id" at remote machine of this
     connection manager, store the result in the "attr".
    */
-  Result<std::string> fetch_remote_mr(const rmem::register_id_t &id,
-                                      rmem::RegAttr &attr,
-                                      const double &timeout_usec = 1000000) {
+  using mr_res_t = std::pair<std::string, rmem::RegAttr>;
+  Result<mr_res_t> fetch_remote_mr(const rmem::register_id_t &id,
+                                   const double &timeout_usec = 1000000) {
     auto res = rpc.call(proto::FetchMr,
                         ::rdmaio::Marshal::dump<proto::MRReq>({.id = id}));
     auto res_reply = rpc.receive_reply(timeout_usec);
@@ -213,19 +212,20 @@ public:
             ::rdmaio::Marshal::dedump<proto::MRReply>(res_reply.desc).value();
         switch (mr_reply.status) {
         case proto::CallbackStatus::Ok:
-          attr = mr_reply.attr;
-          return ::rdmaio::Ok(std::string(""));
+          return ::rdmaio::Ok(std::make_pair(std::string(""), mr_reply.attr));
         case proto::CallbackStatus::NotFound:
-          return NotReady(std::string(""));
+          return NotReady(std::make_pair(std::string(""), rmem::RegAttr()));
         default:
-          return ::rdmaio::Err(std::string("Error return status code"));
+          return ::rdmaio::Err(
+              std::make_pair(err_unknown_status, rmem::RegAttr()));
         }
 
       } catch (std::exception &e) {
-        return ::rdmaio::Err(err_decode_reply);
+        return ::rdmaio::Err(std::make_pair(err_decode_reply, rmem::RegAttr()));
       }
     }
-    return res_reply;
+    return ::rdmaio::transfer(res_reply,
+                              std::make_pair(res_reply.desc, rmem::RegAttr()));
   }
 
   /*!
