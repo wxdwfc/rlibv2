@@ -7,7 +7,6 @@ namespace test {
 using namespace rdmaio;
 
 TEST(CM, MR) {
-  RDMA_LOG(4) << "ctrl started!";
   RCtrl ctrl(8888);
   ctrl.start_daemon();
 
@@ -43,4 +42,35 @@ TEST(CM, MR) {
   ctrl.stop_daemon();
 }
 
-} // namespace test
+TEST(CM, QP) {
+  RCtrl ctrl(8888);
+
+  auto res = RNicInfo::query_dev_names();
+  ASSERT_FALSE(res.empty()); // there has to be NIC on the host machine
+
+  auto nic = RNic::create(res[0]).value();
+  auto ud  = UD::create(nic,QPConfig().set_qkey(73)).value();
+  auto test_attr = ud->my_attr();
+
+  ctrl.registered_qps.reg("test_ud_qp", ud).value();
+
+  ConnectManager cm("localhost:8888");
+  if (cm.wait_ready(1000000, 2) ==
+      IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
+    assert(false);
+
+  auto fetch_qp_attr_res = cm.fetch_qp_attr("test_ud_qp");
+  RDMA_ASSERT(fetch_qp_attr_res.res == IOCode::Ok);
+  auto fetched_attr = std::get<1>(fetch_qp_attr_res);
+
+  // check the fetched attr matches the test_attr
+  ASSERT_EQ(test_attr.lid,fetched_attr.lid);
+  ASSERT_EQ(test_attr.psn, fetched_attr.psn);
+  ASSERT_EQ(test_attr.port_id, fetched_attr.port_id);
+  ASSERT_EQ(test_attr.qpn, fetched_attr.qpn);
+  ASSERT_EQ(test_attr.qkey, fetched_attr.qkey);
+  ASSERT_EQ(fetched_attr.qkey,73);
+  RDMA_LOG(2) << "qkey: " << 73;
+}
+
+}// namespace test

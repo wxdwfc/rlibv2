@@ -60,6 +60,11 @@ class ConnectManager {
 
   SRpc rpc;
 
+  const std::string err_name_to_long = "Name to long";
+  const std::string err_decode_reply = "Decode reply error";
+  const std::string err_not_found = "attribute not found";
+  const std::string err_unknown_status = "Unknown status code";
+
 public:
   explicit ConnectManager(const std::string &addr) : rpc(addr) {}
 
@@ -80,12 +85,11 @@ public:
     return Timeout(std::string("retry exceeds num"));
   }
 
-  Result<std::string> delete_remote_rc(const std::string &name,
-                                       const u64 &key,
+  Result<std::string> delete_remote_rc(const std::string &name, const u64 &key,
                                        const double &timeout_usec = 1000000) {
 
     if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen))
-      return ::rdmaio::Err(std::string("name to long"));
+      return ::rdmaio::Err(std::string(err_name_to_long));
 
     proto::DelRCReq req = {};
     memcpy(req.name, name.data(), name.size());
@@ -134,10 +138,10 @@ public:
                             const double &timeout_usec = 1000000) {
 
     auto err_str = std::string("unknown error");
-    u64  temp_key = 0;
+    u64 temp_key = 0;
 
-    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)){
-      err_str = "name to long";
+    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)) {
+      err_str = err_name_to_long;
       goto ErrCase;
     }
 
@@ -171,7 +175,7 @@ public:
               goto ErrCase;
             }
             auto key = qp_reply.key;
-            return ::rdmaio::Ok(std::make_pair(std::string(""),key));
+            return ::rdmaio::Ok(std::make_pair(std::string(""), key));
           }
           case proto::CallbackStatus::ConnectErr:
             err_str = "Remote connect error";
@@ -180,16 +184,16 @@ public:
             err_str = "Wrong arguments, possible the QP has exsists";
             goto ErrCase;
           default:
-            err_str = "unknown return status code";
+            err_str = err_unknown_status;
           }
         } catch (std::exception &e) {
-          err_str = "Decode reply error";
+          err_str = err_decode_reply;
         }
       }
     }
 
   ErrCase:
-    return ::rdmaio::Err(std::make_pair(err_str,temp_key));
+    return ::rdmaio::Err(std::make_pair(err_str, temp_key));
   }
 
   /*!
@@ -218,10 +222,61 @@ public:
         }
 
       } catch (std::exception &e) {
-        return ::rdmaio::Err(std::string("Decode reply"));
+        return ::rdmaio::Err(err_decode_reply);
       }
     }
     return res_reply;
+  }
+
+  /*!
+    Fetch remote QP attr, this qp can be either UD PQ or RC QP.
+   */
+  using qp_attr_ret_t = std::pair<std::string, ::rdmaio::qp::QPAttr>;
+  Result<qp_attr_ret_t> fetch_qp_attr(const std::string &name,
+                                      const double &timeout_usec = 1000000) {
+    auto err_str = std::string("unknown error");
+
+    // 1. first, sanity check the arg
+    if (unlikely(name.size() > ::rdmaio::qp::kMaxQPNameLen)) {
+      err_str = err_name_to_long;
+      goto ErrCase;
+    }
+
+    auto req = QPReq();
+    memcpy(req.name, name.data(), name.size());
+
+    auto res = rpc.call(proto::RCtrlBinderIdType::FetchQPAttr,
+                        ::rdmaio::Marshal::dump<proto::QPAttr>(req));
+
+    if (unlikely(res != IOCode::Ok)) {
+      err_str = res.desc;
+      goto ErrCase;
+    }
+
+    auto res_reply = rpc.receive_reply(timeout_usec);
+    if (res_reply == IOCode::Ok) {
+      try {
+        auto qp_reply =
+            ::rdmaio::Marshal::dedump<proto::RCReply>(res_reply.desc).value();
+        switch (qp_reply.status) {
+        case proto::CallbackStatus::Ok:
+          return ::rdmaio::Ok(std::make_pair(std::string(""),qp_reply.attr));
+        case proto::CallbackStatus::NotFound:
+          return NotReady(std::make_pair(err_not_found,QPAttr()));
+        default:
+          err_str = err_unknown_status;
+        }
+
+      } catch (std::exception &e) {
+        err_str = err_decode_reply;
+      }
+
+    } else
+      return ::rdmaio::transfer(res_reply,
+                                std::make_pair(res_reply.desc, QPAttr()));
+
+  ErrCase:
+    return ::rdmaio::Err(std::make_pair(err_str, ::rdmaio::qp::QPAttr()));
   }
 };
 

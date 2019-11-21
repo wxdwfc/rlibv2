@@ -76,6 +76,11 @@ public:
     return *this;
   }
 
+  QPConfig &set_qkey(int k) {
+    qkey = k;
+    return *this;
+  }
+
   bool allow_remote_read() const {
     return (access_flags & IBV_ACCESS_REMOTE_READ) != 0;
   }

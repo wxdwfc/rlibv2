@@ -17,6 +17,7 @@ enum RCtrlBinderIdType : rpc_id_t {
   FetchMr,
   CreateRC,
   DeleteRC,
+  FetchQPAttr,
   Reserved,
 };
 
@@ -44,6 +45,11 @@ struct __attribute__((packed)) MRReply {
 
 /*******************************************/
 
+struct __attribute__((packed)) QPReq {
+  char name[::rdmaio::qp::kMaxQPNameLen + 1];
+  u64 key;
+};
+
 /*!
   Req/Reply for creating ~(RC) QPs
  */
@@ -55,8 +61,8 @@ struct __attribute__((packed)) RCReq {
 
   // if whether_create = 1, uses the following parameter to create the QP
   ::rdmaio::nic_id_t nic_id;
-  ::rdmaio::qp::QPConfig  config;
-  ::rdmaio::qp::QPAttr    attr; // the attr used for connect
+  ::rdmaio::qp::QPConfig config;
+  ::rdmaio::qp::QPAttr attr; // the attr used for connect
 };
 
 struct __attribute__((packed)) RCReply {

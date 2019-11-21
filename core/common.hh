@@ -93,6 +93,11 @@ template <typename D = DummyDesc> inline Result<D> NotReady(const D &d = D()) {
   return {.code = IOCode(IOCode::NotReady), .desc = d};
 }
 
+template <typename A, typename B>
+inline Result<B> transfer(const Result<A> &a, const D &d) {
+  return { .code = a.code, .desc = d };
+}
+
 // some handy integer defines
 using u64 = uint64_t;
 using u32 = uint32_t;
