@@ -4,7 +4,7 @@
 #include "../naming.hh"
 #include "../nic.hh"
 
-#include "../utils/timer.hh"
+#include "../utils/mod.hh"
 #include "../utils/abs_factory.hh"
 
 namespace rdmaio {
@@ -55,6 +55,9 @@ public:
   struct ibv_cq *cq = nullptr;
   struct ibv_cq *recv_cq = nullptr;
 
+  // #of outsignaled RDMA requests
+  usize out_signaled = 0;
+
   Arc<RNic> nic;
 
   ~Dummy() {
@@ -71,6 +74,8 @@ public:
   explicit Dummy(Arc<RNic> nic) : nic(nic) {}
 
   bool valid() const { return qp != nullptr && cq != nullptr; }
+
+  inline usize ongoing_signaled() const { return out_signaled; }
 
   /*!
     Send the requests specificed by the sr
@@ -94,6 +99,8 @@ public:
   inline std::pair<int,ibv_wc> poll_send_comp(const int &num) const {
     ibv_wc wc;
     auto poll_result = ibv_poll_cq(cq, num, &wc);
+    if (poll_result > 0)
+      out_signaled -= 1;
     return std::make_pair(poll_result,wc);
   }
 

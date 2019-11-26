@@ -2,8 +2,8 @@
 
 #include "../rmem/handler.hh"
 
-#include "./mod.hh"
 #include "./impl.hh"
+#include "./mod.hh"
 
 namespace rdmaio {
 
@@ -218,11 +218,34 @@ public:
     sr.wr.rdma.remote_addr = remote_mr.buf + payload.remote_addr;
     sr.wr.rdma.rkey = remote_mr.key;
 
+    if (desc.flags & IBV_SEND_SIGNALED)
+      out_signaled += 1;
+
     auto rc = ibv_post_send(qp, &sr, &bad_sr);
     if (0 == rc) {
       return Ok(std::string(""));
     }
     return Err(std::string(strerror(errno)));
+  }
+
+  /*!
+    A wrapper of poll_send_comp.
+    It maintain the watermark of progress by decoding the watermark
+    in the wc, and return the encoded user wr.
+   */
+  Option<std::pair<u64, ibv_wc>> poll_rc_comp() {
+    auto num_wc = poll_send_comp(1);
+    if (std::get<0>(num_wc) == 0)
+      return {};
+    auto &wc = std::get<1>(num_wc);
+    u64 user_wr = std::get<1>(wc.wr_id >> (Progress::num_progress_bits));
+
+    const auto mask = bitmask<u64>(Progress::num_progress_bits);
+    u64 water_mark =
+        std::get<1>(wc.wr_id) & bitmask<u64>(Progress::num_progress_bits);
+    progress.done(water_mark);
+
+    return std::make_pair(user_wr,wc);
   }
 
   int max_send_sz() const { return my_config.max_send_size; }
