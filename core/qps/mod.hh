@@ -96,7 +96,7 @@ public:
     Poll one completion from the send_cq
     \param num: number of completions expected
    */
-  inline std::pair<int,ibv_wc> poll_send_comp(const int &num) const {
+  inline std::pair<int,ibv_wc> poll_send_comp(const int &num) {
     ibv_wc wc;
     auto poll_result = ibv_poll_cq(cq, num, &wc);
     if (poll_result > 0)

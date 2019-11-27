@@ -2,8 +2,8 @@
 
 #include "../rmem/handler.hh"
 
-#include "./impl.hh"
 #include "./mod.hh"
+#include "./impl.hh"
 
 namespace rdmaio {
 
@@ -238,14 +238,30 @@ public:
     if (std::get<0>(num_wc) == 0)
       return {};
     auto &wc = std::get<1>(num_wc);
-    u64 user_wr = std::get<1>(wc.wr_id >> (Progress::num_progress_bits));
+    u64 user_wr = wc.wr_id >> (Progress::num_progress_bits);
 
     const auto mask = bitmask<u64>(Progress::num_progress_bits);
-    u64 water_mark =
-        std::get<1>(wc.wr_id) & bitmask<u64>(Progress::num_progress_bits);
+    u64 water_mark = wc.wr_id & bitmask<u64>(Progress::num_progress_bits);
     progress.done(water_mark);
 
-    return std::make_pair(user_wr,wc);
+    return std::make_pair(user_wr, wc);
+  }
+
+  Result<std::pair<u64, ibv_wc>>
+  wait_rc_comp(const double &timeout = ::rdmaio::Timer::no_timeout()) {
+    Timer t;
+    ibv_wc wc;
+    Option<std::pair<u64, ibv_wc>> res = {};
+    do {
+      // poll one comp
+      res = poll_rc_comp();
+    } while (!res && // poll result is 0
+             t.passed_msec() < timeout);
+    if (!res)
+      return Timeout(std::make_pair(0lu, wc));
+    if (std::get<1>(res.value()).status != IBV_WC_SUCCESS)
+      return Err(std::make_pair(0lu, wc));
+    return Ok(res.value());
   }
 
   int max_send_sz() const { return my_config.max_send_size; }

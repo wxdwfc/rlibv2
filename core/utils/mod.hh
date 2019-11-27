@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./timer.hh"
+#include <limits.h>
 
 namespace rdmaio {
 
