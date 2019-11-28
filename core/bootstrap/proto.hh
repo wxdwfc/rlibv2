@@ -13,7 +13,7 @@ using rpc_id_t = u8;
   RPC ids used for the callbacks
  */
 enum RCtrlBinderIdType : rpc_id_t {
-  HeartBeat,
+  HeartBeat = 0,
   FetchMr,
   CreateRC,
   DeleteRC,
