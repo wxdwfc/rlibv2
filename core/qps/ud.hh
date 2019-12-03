@@ -17,6 +17,7 @@ const usize kGRHSz = 40;
   `
   // TODO
   `
+  // check tests/test_ud.cc
  */
 class UD : public Dummy {
 public:
@@ -27,6 +28,8 @@ public:
   const usize kMaxMsgSz = 4000;
 
   const usize kMaxUdRecvEntries = 2048;
+
+  usize pending_reqs = 0;
 
   /*!
     40 bytes reserved for GRH, found in
