@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include "../common.hh"
+
 namespace rdmaio {
 
 namespace qp {
@@ -15,15 +17,67 @@ const usize kNMaxDoorbell = 16;
   currently this class is left with no methods, because I found its hard
   to abstract many away the UD and RC doorbelled requests
 */
-template <usize N> struct DoorbellHelper {
-  ibv_send_wr srs[N];
+template <usize N = kNMaxDoorbell> struct DoorbellHelper {
+  ibv_send_wr wrs[N];
   ibv_sge sges[N];
 
-  const u8 cur_idx = 0;
+  u8 cur_idx = 0;
 
   static_assert(std::numeric_limits<u8>::max() > kNMaxDoorbell,
                 "Index type's max value must be larger than the number of max "
                 "doorbell num");
+
+  explicit DoorbellHelper(const ibv_wr_opcode &op) {
+    for (uint i = 0; i < N; ++i) {
+      wrs[i].opcode = op;
+      wrs[i].num_sge = 1;
+      // its fine to store an invalid pointer when i == N,
+      // this is because before flushing the doorbelled requests,
+      // we will modify change the laster pointer to nullptr
+      wrs[i].next = &(wrs[i + 1]);
+      wrs[i].sg_list = &sges[i];
+    }
+  }
+
+  /*!
+    Current pending doorbelled request
+   */
+  bool size() const { return cur_idx + 1; }
+
+  bool empty() const { return cur_idx == 0; }
+
+  void next() {
+    assert(!full());
+    cur_idx += 1;
+  }
+
+  bool full() const { return cur_idx + 1 == N; }
+
+  /*!
+    setup the cur_wr's next to nullptr
+    so that we are able to post these doorbells to the NIC
+   */
+  inline void freeze() {
+    assert(!empty());
+    wrs[cur_idx - 1].next = nullptr;
+  }
+
+  inline void freeze_done() {
+    assert(!empty());
+    wrs[cur_idx - 1].next = &(wrs[cur_idx]);
+  }
+
+  inline void clear() { cur_idx = 0; }
+
+  /*!
+    Warning!!
+    We donot check i due to performance reasons
+   */
+  inline ibv_send_wr &cur_wr() { return wrs[cur_idx]; }
+
+  inline ibv_sge &cur_sge() { return sges[cur_idx]; }
+
+  inline ibv_send_wr *first_wr_ptr() { return &wrs[0]; }
 };
 
 } // namespace qp
