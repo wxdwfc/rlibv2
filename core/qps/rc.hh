@@ -192,6 +192,11 @@ public:
     return send_normal(desc, payload, local_mr.value(), remote_mr.value());
   }
 
+  u64 encode_my_wr(const u64 &wr, int forward_num) {
+    return (static_cast<u64>(wr) << Progress::num_progress_bits) |
+           static_cast<u64>(progress.forward(forward_num));
+  }
+
   Result<std::string> send_normal(const ReqDesc &desc,
                                   const ReqPayload &payload,
                                   const RegAttr &local_mr,
@@ -206,8 +211,7 @@ public:
 
     struct ibv_send_wr sr, *bad_sr;
 
-    sr.wr_id = (static_cast<u64>(desc.wr_id) << Progress::num_progress_bits) |
-               static_cast<u64>(progress.forward(1));
+    sr.wr_id = encode_my_wr(desc.wr_id, 1);
     sr.opcode = desc.op;
     sr.num_sge = 1;
     sr.next = nullptr;
