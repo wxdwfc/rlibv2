@@ -21,9 +21,9 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   ibv_send_wr wrs[N];
   ibv_sge sges[N];
 
-  u8 cur_idx = 0;
+  i8 cur_idx = -1;
 
-  static_assert(std::numeric_limits<u8>::max() > kNMaxDoorbell,
+  static_assert(std::numeric_limits<i8>::max() > kNMaxDoorbell,
                 "Index type's max value must be larger than the number of max "
                 "doorbell num");
 
@@ -44,14 +44,17 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
    */
   bool size() const { return cur_idx + 1; }
 
-  bool empty() const { return cur_idx == 0; }
+  bool empty() const { return size() == 0; }
 
-  void next() {
-    assert(!full());
+  bool next() {
+    // assert(!full());
+    if (unlikely(full()))
+      return false;
     cur_idx += 1;
+    return true;
   }
 
-  bool full() const { return cur_idx + 1 == N; }
+  bool full() const { return size() == N; }
 
   /*!
     setup the cur_wr's next to nullptr
@@ -59,7 +62,7 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
    */
   inline void freeze() {
     assert(!empty());
-    wrs[cur_idx - 1].next = nullptr;
+    last_wr().next = nullptr;
   }
 
   inline void freeze_done() {
@@ -67,17 +70,43 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
     wrs[cur_idx - 1].next = &(wrs[cur_idx]);
   }
 
-  inline void clear() { cur_idx = 0; }
+  inline void clear() { cur_idx = -1; }
 
   /*!
     Warning!!
     We donot check i due to performance reasons
    */
-  inline ibv_send_wr &cur_wr() { return wrs[cur_idx]; }
+  inline ibv_send_wr &cur_wr() {
+    assert(!empty());
+    return wrs[cur_idx];
+  }
 
-  inline ibv_sge &cur_sge() { return sges[cur_idx]; }
+  inline ibv_send_wr &last_wr() {
+    return cur_wr();
+  }
+
+  inline ibv_sge &cur_sge() {
+    assert(!empty());
+    return sges[cur_idx];
+  }
 
   inline ibv_send_wr *first_wr_ptr() { return &wrs[0]; }
+
+  // some helper functions for verifying the correctness of the wrs/sges
+  usize sanity_check_sz() {
+    auto cur_ptr = first_wr_ptr();
+    if (empty())
+      return 0;
+
+    for (uint i = 0; i < N; ++i) {
+      cur_ptr = cur_ptr->next;
+      if (cur_ptr == nullptr) {
+        return i + 1;
+      }
+    }
+    // an invalid sz
+    return N + 1;
+  }
 };
 
 } // namespace qp
