@@ -42,7 +42,7 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   /*!
     Current pending doorbelled request
    */
-  bool size() const { return cur_idx + 1; }
+  int size() const { return cur_idx + 1; }
 
   bool empty() const { return size() == 0; }
 
@@ -62,12 +62,12 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
    */
   inline void freeze() {
     assert(!empty());
-    last_wr().next = nullptr;
+    cur_wr().next = nullptr;
   }
 
   inline void freeze_done() {
     assert(!empty());
-    wrs[cur_idx - 1].next = &(wrs[cur_idx]);
+    wrs[cur_idx].next = &(wrs[cur_idx + 1]);
   }
 
   inline void clear() { cur_idx = -1; }
@@ -79,10 +79,6 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   inline ibv_send_wr &cur_wr() {
     assert(!empty());
     return wrs[cur_idx];
-  }
-
-  inline ibv_send_wr &last_wr() {
-    return cur_wr();
   }
 
   inline ibv_sge &cur_sge() {
