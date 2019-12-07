@@ -16,6 +16,25 @@ const usize kNMaxDoorbell = 16;
 /*!
   currently this class is left with no methods, because I found its hard
   to abstract many away the UD and RC doorbelled requests
+
+  Example:
+  `
+  DoorbellHelper<2> doorbell; // init a doorbell with at most two requeast
+
+  doorbell.next(); // add one
+  doorbell.cur_sge() = ...; // setup the current sge
+  doorbell.cur_wr() = ...;  // setup the current (send) wr
+
+  doorbell.next(); // start another doorbell request
+  doorbell.cur_sge() = ...; // setup the current sge
+  doorbell.cur_wr() = ...;  // setup the current (send) wr
+
+  // now we can post this doorbell
+  doorbell.freeze(); // freeze this doorbell to avoid future next()
+  ibv_post_send(doorbell.first_wr_ptr(), ... );
+  doorbell.freeze_done(); // re-set this doorbell to reuse, (optional)
+  doorbell.clear(); // re-set the counter
+  `
 */
 template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   ibv_send_wr wrs[N];
@@ -70,7 +89,10 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
     wrs[cur_idx].next = &(wrs[cur_idx + 1]);
   }
 
-  inline void clear() { cur_idx = -1; }
+  inline void clear() {
+    freeze_done();
+    cur_idx = -1;
+  }
 
   /*!
     Warning!!
