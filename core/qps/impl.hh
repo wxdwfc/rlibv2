@@ -29,8 +29,11 @@ public:
     } else if (qp->qp_type == IBV_QPT_UD) {
       qp_attr.qkey = config.qkey;
       flags |= IBV_QP_QKEY;
-    } else {
+    } else if (qp->qp_type == IBV_QPT_UC) {
       // TODO: UC not implemented
+      RDMA_ASSERT(false) << "UC QP not implemented";
+    } else {
+      RDMA_ASSERT(false) << "unknown qp type";
     }
 
     RDMA_ASSERT(qp != nullptr);
@@ -129,6 +132,7 @@ public:
     qp_init_attr.send_cq = cq;
     qp_init_attr.recv_cq = recv_cq;
     qp_init_attr.qp_type = type;
+    qp_init_attr.sq_sig_all = 0;
 
     qp_init_attr.cap.max_send_wr = config.max_send_sz();
     qp_init_attr.cap.max_recv_wr = config.max_recv_sz();

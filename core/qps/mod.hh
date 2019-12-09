@@ -119,15 +119,15 @@ public:
       // poll one comp
       res = poll_send_comp(1);
     } while (res.first == 0 && // poll result is 0
-             t.passed_msec() < timeout);
+             t.passed_msec() <= timeout);
     if(res.first == 0)
       return Timeout(res.second);
-    if(res.first < 0 || res.second.status != IBV_WC_SUCCESS)
+    if(unlikely(res.first < 0 || res.second.status != IBV_WC_SUCCESS))
       return Err(res.second);
     return Ok(res.second);
   }
 
-  // below handy helper functions for common QP operations
+  // below is handy helper functions for common QP operations
   /**
    * return whether qp is in {INIT,READ_TO_RECV,READY_TO_SEND} states
    */

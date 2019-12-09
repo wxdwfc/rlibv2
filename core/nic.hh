@@ -17,6 +17,7 @@ using nic_id_t = u64;
   - open a context, protection domain, and filled the address.
  */
 class RNic {
+public:
   // context exposed by libibverbs
   struct ibv_context *ctx = nullptr;
   struct ibv_pd *pd = nullptr;

@@ -9,6 +9,10 @@ namespace rdmaio {
 
 namespace qp {
 
+/*!
+  40 bytes reserved for GRH, found in
+  https://www.rdmamojo.com/2013/02/15/ibv_poll_cq/
+*/
 const usize kGRHSz = 40;
 
 /*!
@@ -31,10 +35,6 @@ public:
 
   usize pending_reqs = 0;
 
-  /*!
-    40 bytes reserved for GRH, found in
-    https://www.rdmamojo.com/2013/02/15/ibv_poll_cq/
-  */
   const QPConfig my_config;
 
   static Option<Arc<UD>> create(Arc<RNic> nic, const QPConfig &config) {
@@ -88,18 +88,26 @@ public:
     create address handler from a QP attribute
    */
   ibv_ah *create_ah(const QPAttr &attr) {
-    struct ibv_ah_attr ah_attr;
+    struct ibv_ah_attr ah_attr = {};
+#if 1
     ah_attr.is_global = 1;
     ah_attr.dlid = attr.lid;
     ah_attr.sl = 0;
     ah_attr.src_path_bits = 0;
-    ah_attr.port_num = attr.port_id;
+    ah_attr.port_num = nic->id.port_id; //attr.port_id;
 
     ah_attr.grh.dgid.global.subnet_prefix = attr.addr.subnet_prefix;
     ah_attr.grh.dgid.global.interface_id = attr.addr.interface_id;
     ah_attr.grh.flow_label = 0;
     ah_attr.grh.hop_limit = 255;
     ah_attr.grh.sgid_index = nic->addr.value().local_id;
+#else
+    ah_attr.is_global = 0;
+    ah_attr.dlid = attr.lid;
+    ah_attr.sl = 0;
+    ah_attr.src_path_bits = 0;
+    ah_attr.port_num = nic->id.port_id;
+#endif
     return ibv_create_ah(nic->get_pd(), &ah_attr);
   }
 
