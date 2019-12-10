@@ -2,8 +2,8 @@
 
 #include "../core/nicinfo.hh"
 
-#include "../core/qps/recv_iter.hh"
 #include "../core/qps/rc.hh"
+#include "../core/qps/recv_iter.hh"
 
 #include "../core/utils/marshal.hh"
 
@@ -36,6 +36,8 @@ public:
 };
 
 TEST(RC, SR) {
+  // this test is deprecated, check **test_rc_send_cm.cc**
+#if 0
   auto res = RNicInfo::query_dev_names();
   ASSERT_FALSE(res.empty());
   auto nic = RNic::create(res.at(0)).value();
@@ -145,6 +147,7 @@ TEST(RC, SR) {
     }
     ASSERT_EQ(recved_msgs, recv_depth);
   }
+#endif
 }
 
 } // namespace test

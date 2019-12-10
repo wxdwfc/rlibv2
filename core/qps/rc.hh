@@ -51,7 +51,7 @@ class RC : public Dummy {
 
   // pending requests monitor
   Progress progress;
-
+public:
   const QPConfig my_config;
 
   /* the only constructor
@@ -62,6 +62,7 @@ class RC : public Dummy {
      ...
      }
   */
+private:
   RC(Arc<RNic> nic, const QPConfig &config,ibv_cq *recv_cq = nullptr) : Dummy(nic), my_config(config) {
     /*
       It takes 3 steps to create an RC QP during the initialization

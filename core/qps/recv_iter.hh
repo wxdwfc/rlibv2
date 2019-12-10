@@ -23,39 +23,43 @@ namespace qp {
   `
  */
 template <typename QP, usize es> class RecvIter {
-  QP *qp;
-  RecvEntries<es> *entries;
+  QP *qp = nullptr;
+  RecvEntries<es> *entries = nullptr;
+  ibv_wc *wcs;
 
   int idx = 0;
   const int total_msgs = -1;
 
 public:
-  RecvIter(Arc<QP> &qp, Arc<RecvEntries<es>> &entries)
-      : qp(qp.get()), entries(entries.get()),
-        total_msgs(ibv_poll_cq(qp->recv_cq, es, this->entries->wcs)) {
+  RecvIter(ibv_cq *cq, ibv_wc *wcs)
+      : wcs(wcs), total_msgs(ibv_poll_cq(cq, es, wcs)) {}
+
+  RecvIter(Arc<QP> &qp, ibv_wc *wcs)
+      : qp(qp.get()), wcs(wcs), total_msgs(ibv_poll_cq(qp->recv_cq, es, wcs)) {}
+
+  RecvIter(Arc<QP> &qp, Arc<RecvEntries<es>> &e) : RecvIter(qp, e->wcs) {
+    entries = e.get();
   }
 
   /*!
     \ret (imm_data, recv_buffer)
     */
-  Option<std::pair<u32,rmem::RMem::raw_ptr_t>> cur_msg() const {
+  Option<std::pair<u32, rmem::RMem::raw_ptr_t>> cur_msg() const {
     if (has_msgs()) {
-      auto buf = reinterpret_cast <rmem::RMem::raw_ptr_t>(entries->wcs[idx].wr_id);
-      return std::make_pair(entries->wcs[idx].imm_data,buf);
+      auto buf = reinterpret_cast<rmem::RMem::raw_ptr_t>(wcs[idx].wr_id);
+      return std::make_pair(wcs[idx].imm_data, buf);
     }
     return {};
   }
 
-  inline void next() {
-    idx += 1;
-  }
+  inline void next() { idx += 1; }
 
   inline bool has_msgs() const { return idx < total_msgs; }
 
   ~RecvIter() {
     // post recvs
-    if (likely(total_msgs > 0)) {
-      auto res = qp->post_recvs(*entries,total_msgs);
+    if (total_msgs > 0 && qp != nullptr && entries != nullptr) {
+      auto res = qp->post_recvs(*entries, total_msgs);
       if (unlikely(res != IOCode::Ok))
         RDMA_LOG(4) << "post recv error: " << strerror(res.desc);
     }
