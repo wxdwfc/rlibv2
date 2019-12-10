@@ -28,7 +28,7 @@ struct RecvCommon {
   R: recv cq depth for a QP
 */
 template <usize R = 128, usize T = 4096> class RecvManager {
-  static_assert(R < 2048, "");
+  static_assert(R <= 2048, "");
 
 public:
   Factory<std::string, RecvCommon> reg_recv_cqs;
