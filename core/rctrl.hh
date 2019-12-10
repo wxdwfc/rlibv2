@@ -29,6 +29,7 @@ public:
   rmem::MRFactory registered_mrs;
   qp::QPFactory registered_qps;
   Factory<nic_id_t, RNic> opened_nics;
+  Factory<std::string, ibv_cq> rc_recv_cqs;
 
   bootstrap::SRpcHandler rpc;
 
@@ -183,8 +184,14 @@ private:
         if (!nic)
           goto WA; // failed to find Nic
 
+        // 1.0 check whether we are able to use the registered recv_cq
+        ibv_cq *recv_cq = nullptr;
+        if (rc_req.whether_recv == 1) {
+          recv_cq = rc_recv_cqs.query_or_default(rc_req.name_recv,nullptr).get();
+        }
+
         // 1.1 try to create and register this QP
-        auto rc = qp::RC::create(nic.value(), rc_req.config).value();
+        auto rc = qp::RC::create(nic.value(), rc_req.config,recv_cq).value();
         auto rc_status = registered_qps.reg(rc_req.name, rc);
 
         if (!rc_status) {

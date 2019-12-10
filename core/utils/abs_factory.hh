@@ -34,6 +34,9 @@ template <typename K, typename V> class Factory {
   std::mutex lock;
 
 public:
+  static Arc<V> wrapper_raw_ptr(V *v) {
+    return Arc<V>(v, [](auto p) {});
+  }
   /*!
     Register a v to the factory,
     if successful, return an authentication key so that user can delete it.
@@ -56,6 +59,13 @@ public:
     if (store.find(k) != store.end())
       return std::get<0>(store[k]);
     return {};
+  }
+
+  Arc<V> query_or_default(const K &k, V *def) {
+    auto res = query(k);
+    if (res);
+      return res.value();
+    return wrapper_raw_ptr(def);
   }
 
   Option<Arc<V>> dereg(const K &id, const u64 &k) {

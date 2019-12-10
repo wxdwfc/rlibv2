@@ -54,10 +54,15 @@ struct __attribute__((packed)) QPReq {
   Req/Reply for creating ~(RC) QPs
  */
 struct __attribute__((packed)) RCReq {
+
+  RCReq() = default;
+
   // parameter for querying the QP
   char name[::rdmaio::qp::kMaxQPNameLen + 1];
+  char name_recv[::rdmaio::qp::kMaxQPNameLen + 1]; // the name used to create recv_cqs
 
   u8 whether_create = 0; // 1: create the QP, 0 only query the QP attr
+  u8 whether_recv   = 0; // 1: create with the recv_cq specified by the *name_recv*, 0 not
 
   // if whether_create = 1, uses the following parameter to create the QP
   ::rdmaio::nic_id_t nic_id;
