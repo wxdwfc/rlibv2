@@ -29,7 +29,7 @@ public:
   rmem::MRFactory registered_mrs;
   qp::QPFactory registered_qps;
   Factory<nic_id_t, RNic> opened_nics;
-  Factory<std::string, ibv_cq> rc_recv_cqs;
+  // Factory<std::string, ibv_cq> rc_recv_cqs;
 
   bootstrap::SRpcHandler rpc;
 
@@ -144,6 +144,7 @@ private:
     Given a RCReq, query its attribute from the QPs
     \ret: Marshalling RCReply to a Bytebuffer
    */
+public:
   ByteBuffer fetch_qp_attr(const proto::RCReq &req, const u64 &key) {
     auto rc = registered_qps.query(req.name);
     if (rc) {
@@ -156,6 +157,7 @@ private:
         {.status = proto::CallbackStatus::NotFound});
   }
 
+private:
   /*!
     Handling the RC request
     The process has two steps:
@@ -186,12 +188,14 @@ private:
 
         // 1.0 check whether we are able to use the registered recv_cq
         ibv_cq *recv_cq = nullptr;
+#if 0 // we move this to a separte class
         if (rc_req.whether_recv == 1) {
           recv_cq = rc_recv_cqs.query_or_default(rc_req.name_recv,nullptr).get();
         }
+#endif
 
         // 1.1 try to create and register this QP
-        auto rc = qp::RC::create(nic.value(), rc_req.config,recv_cq).value();
+        auto rc = qp::RC::create(nic.value(), rc_req.config, recv_cq).value();
         auto rc_status = registered_qps.reg(rc_req.name, rc);
 
         if (!rc_status) {

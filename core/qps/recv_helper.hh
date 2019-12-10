@@ -27,13 +27,11 @@ template <usize N> struct RecvEntries {
     return rs + idx;
   }
 
-  ibv_recv_wr *header_ptr() {
-    return wr_ptr(header);
-  }
+  ibv_recv_wr *header_ptr() { return wr_ptr(header); }
 
   void sanity_check() {
-    for(uint i = 0;i < N - 1;++i) {
-      RDMA_ASSERT((u64)(wr_ptr(i)->next) == (u64)(wr_ptr(i+1)));
+    for (uint i = 0; i < N - 1; ++i) {
+      RDMA_ASSERT((u64)(wr_ptr(i)->next) == (u64)(wr_ptr(i + 1)));
       RDMA_ASSERT((u64)(wr_ptr(i)->sg_list) == (u64)(&sges[i]));
       RDMA_ASSERT(wr_ptr(i)->num_sge == 1);
     }
@@ -61,8 +59,38 @@ public:
         ret->rs[i].wr_id = sge.addr;
         ret->rs[i].sg_list = &(ret->sges[i]);
         ret->rs[i].num_sge = 1;
-        ret->rs[i].next =
-            (i < N - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
+        ret->rs[i].next = (i < N - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
+
+        ret->sges[i] = sge;
+      }
+    }
+    return ret;
+  }
+};
+
+/*!
+  This version only uses one template: N
+ */
+template <usize N> class RecvEntriesFactoryv2 {
+public:
+  static Arc<RecvEntries<N>> create(Arc<AbsRecvAllocator> &alloc_p,
+                                    const usize &msg_sz) {
+
+    Arc<RecvEntries<N>> ret(new RecvEntries<N>);
+
+    for (uint i = 0; i < N; ++i) {
+      auto recv_buf = alloc_p->alloc_one(msg_sz).value();
+
+      struct ibv_sge sge = {
+          .addr = reinterpret_cast<uintptr_t>(std::get<0>(recv_buf)),
+          .length = static_cast<u32>(msg_sz),
+          .lkey = std::get<1>(recv_buf)};
+
+      { // unsafe code
+        ret->rs[i].wr_id = sge.addr;
+        ret->rs[i].sg_list = &(ret->sges[i]);
+        ret->rs[i].num_sge = 1;
+        ret->rs[i].next = (i < N - 1) ? (&(ret->rs[i + 1])) : (&(ret->rs[0]));
 
         ret->sges[i] = sge;
       }

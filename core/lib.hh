@@ -148,6 +148,7 @@ public:
       proto::RCReq req = {};
       memcpy(req.name, name.data(), name.size());
       req.whether_create = 1;
+      req.whether_recv = 0;
       req.nic_id = nic_id;
       req.config = config;
       req.attr = rc->my_attr();
@@ -194,6 +195,81 @@ public:
   ErrCase:
     return ::rdmaio::Err(std::make_pair(err_str, temp_key));
   }
+
+  Result<cc_rc_ret_t> cc_rc_msg(
+                            const std::string &qp_name,
+                            const std::string &channel_name,
+                            const usize &msg_sz,
+                            const Arc<::rdmaio::qp::RC> rc,
+                            const ::rdmaio::nic_id_t &nic_id,
+                            const ::rdmaio::qp::QPConfig &config,
+                            const double &timeout_usec = 1000000) {
+
+    auto err_str = std::string("unknown error");
+    u64 temp_key = 0;
+
+    if (unlikely(qp_name.size() > ::rdmaio::qp::kMaxQPNameLen)) {
+      err_str = err_name_to_long;
+      goto ErrCase;
+    }
+
+    {
+      proto::RCReq req = {};
+      memcpy(req.name, qp_name.data(), qp_name.size());
+      memcpy(req.name_recv, channel_name.data(), channel_name.size());
+
+      req.whether_create = 1;
+      req.whether_recv = 1;
+
+      req.nic_id = nic_id;
+      req.config = config;
+      req.attr = rc->my_attr();
+      req.max_recv_sz = msg_sz;
+
+      auto res =
+        rpc.call(proto::CreateRCM, ::rdmaio::Marshal::dump<proto::RCReq>(req));
+
+      // FIXME: below are the same as cc_rc(); maybe refine in a more elegant form
+      if (unlikely(res != IOCode::Ok)) {
+        err_str = res.desc;
+        goto ErrCase;
+      }
+
+      auto res_reply = rpc.receive_reply(timeout_usec);
+
+      if (res_reply == IOCode::Ok) {
+        try {
+          auto qp_reply =
+              ::rdmaio::Marshal::dedump<RCReply>(res_reply.desc).value();
+          switch (qp_reply.status) {
+          case proto::CallbackStatus::Ok: {
+            auto ret = rc->connect(qp_reply.attr);
+            if (ret != IOCode::Ok) {
+              err_str = ret.desc;
+              goto ErrCase;
+            }
+            auto key = qp_reply.key;
+            return ::rdmaio::Ok(std::make_pair(std::string(""), key));
+          }
+          case proto::CallbackStatus::ConnectErr:
+            err_str = "Remote connect error";
+            goto ErrCase;
+          case proto::CallbackStatus::WrongArg:
+            err_str = "Wrong arguments, possible the QP has exsists";
+            goto ErrCase;
+          default:
+            err_str = err_unknown_status;
+          }
+        } catch (std::exception &e) {
+          err_str = err_decode_reply;
+        }
+      }
+    }
+
+  ErrCase:
+    return ::rdmaio::Err(std::make_pair(err_str, temp_key));
+  }
+
 
   /*!
     Fetch remote MR identified with "id" at remote machine of this

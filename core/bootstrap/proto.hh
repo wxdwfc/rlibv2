@@ -13,11 +13,12 @@ using rpc_id_t = u8;
   RPC ids used for the callbacks
  */
 enum RCtrlBinderIdType : rpc_id_t {
-  HeartBeat = 0,
-  FetchMr,
-  CreateRC,
+  HeartBeat = 0, // ping whether RCtrl is started
+  FetchMr,       // fetch remote MR
+  CreateRC,      // create an RC for connect (for one-sided)
+  CreateRCM,     // create an RC which uses message (for two-sided)
   DeleteRC,
-  FetchQPAttr,
+  FetchQPAttr,  // fetch a created QP's attr. useful for UD QP
   Reserved,
 };
 
@@ -68,6 +69,8 @@ struct __attribute__((packed)) RCReq {
   ::rdmaio::nic_id_t nic_id;
   ::rdmaio::qp::QPConfig config;
   ::rdmaio::qp::QPAttr attr; // the attr used for connect
+
+  u16 max_recv_sz = 4096;
 };
 
 struct __attribute__((packed)) RCReply {
