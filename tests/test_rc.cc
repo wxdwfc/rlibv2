@@ -3,6 +3,8 @@
 #include "../core/qps/rc.hh"
 #include "../core/nicinfo.hh"
 
+#include "../core/utils/marshal.hh"
+
 namespace test {
 
 using namespace rdmaio::qp;

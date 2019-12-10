@@ -44,37 +44,6 @@ public:
     return {};
   }
 
-  /*!
-    Post *num* recv entries to the QP, start at entries.header
-
-    \ret
-    - Err: errono
-    - Ok: -
-   */
-  template <usize entries>
-  Result<int> post_recvs(RecvEntries<entries> &r, int num) {
-
-    RDMA_ASSERT(num <= my_config.max_recv_size);
-
-    auto tail = r.header + num - 1;
-    if (tail >= entries)
-      tail -= entries;
-    auto temp = std::exchange((r.rs + tail)->next, nullptr);
-
-    // really post the recvs
-    struct ibv_recv_wr *bad_rr;
-    auto rc = ibv_post_recv(this->qp, r.header_ptr(), &bad_rr);
-
-    if (rc != 0)
-      return Err(errno);
-
-    // re-set the header, tailer
-    r.wr_ptr(tail)->next = temp;
-    r.header = (tail + 1) % entries;
-
-    return Ok(0);
-  }
-
   QPAttr my_attr() const override {
     return {.addr = nic->addr.value(),
             .lid = nic->lid.value(),

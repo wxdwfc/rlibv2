@@ -62,7 +62,7 @@ class RC : public Dummy {
      ...
      }
   */
-  RC(Arc<RNic> nic, const QPConfig &config) : Dummy(nic), my_config(config) {
+  RC(Arc<RNic> nic, const QPConfig &config,ibv_cq *recv_cq = nullptr) : Dummy(nic), my_config(config) {
     /*
       It takes 3 steps to create an RC QP during the initialization
       according to the RDMA programming mannal.
@@ -77,6 +77,11 @@ class RC : public Dummy {
       return;
     }
     this->cq = std::get<0>(res.desc);
+
+    // FIXME: we donot sanity check the the incoming recv_cq
+    // The choice is that the recv cq could be shared among other QPs
+    // shall we replace this with smart pointers ?
+    this->recv_cq = recv_cq;
 
     // 2 qp
     auto res_qp =
@@ -97,8 +102,9 @@ class RC : public Dummy {
 
 public:
   static Option<Arc<RC>> create(Arc<RNic> nic,
-                                const QPConfig &config = QPConfig()) {
-    auto res = Arc<RC>(new RC(nic, config));
+                                const QPConfig &config = QPConfig(),
+                                ibv_cq *recv_cq = nullptr) {
+    auto res = Arc<RC>(new RC(nic, config,recv_cq));
     if (res->valid()) {
       return Option<Arc<RC>>(std::move(res));
     }
