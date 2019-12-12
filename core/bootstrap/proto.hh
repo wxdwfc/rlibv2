@@ -70,7 +70,7 @@ struct __attribute__((packed)) RCReq {
   ::rdmaio::qp::QPConfig config;
   ::rdmaio::qp::QPAttr attr; // the attr used for connect
 
-  u16 max_recv_sz = 4096;
+  u64 max_recv_sz = 4096;
 };
 
 struct __attribute__((packed)) RCReply {

@@ -56,7 +56,7 @@ namespace rdmaio {
 using namespace bootstrap;
 
 class ConnectManager {
-
+protected:
   SRpc rpc;
 
   const std::string err_name_to_long = "Name to long";

@@ -14,6 +14,12 @@ public:
    */
   virtual Option<std::pair<rmem::RMem::raw_ptr_t, rmem::mr_key_t>>
   alloc_one(const usize &sz) = 0;
+
+  virtual Option<std::pair<rmem::RMem::raw_ptr_t, rmem::RegAttr>>
+  alloc_one_for_remote(const usize &sz) {
+    RDMA_ASSERT(false) << "not implemented";
+    return {};
+  }
 };
 
 } // namespace qp

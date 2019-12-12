@@ -7,7 +7,6 @@
 namespace rdmaio {
 
 namespace qp {
-
 /*!
   Common structure shared by a recv endpoint
  */
