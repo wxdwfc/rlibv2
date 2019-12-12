@@ -37,6 +37,8 @@ public:
   static Arc<V> wrapper_raw_ptr(V *v) {
     return Arc<V>(v, [](auto p) {});
   }
+
+  usize reg_entries() const { return store.size(); }
   /*!
     Register a v to the factory,
     if successful, return an authentication key so that user can delete it.
