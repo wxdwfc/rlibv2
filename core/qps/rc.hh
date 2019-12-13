@@ -42,6 +42,7 @@ namespace qp {
   );
 */
 class RC : public Dummy {
+public:
   // default local MR used by this QP
   Option<RegAttr> local_mr;
   // default remote MR used by this QP
