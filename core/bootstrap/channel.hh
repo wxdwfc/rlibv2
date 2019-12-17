@@ -142,6 +142,8 @@ class SendChannel : public AbsChannel {
     if (valid()) {
       // set as a non-blocking channel
       fcntl(this->sock_fd, F_SETFL, O_NONBLOCK);
+    } else {
+      RDMA_LOG(4) << "failed to create send socket to: " << ip << ":" << port;
     }
   }
 

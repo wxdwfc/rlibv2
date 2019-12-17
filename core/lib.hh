@@ -357,4 +357,24 @@ public:
   }
 };
 
+// a helper for hide wait_ready process
+template <class CM = ConnectManager> class CMFactory {
+public:
+  Result<Arc<CM>> create(const std::string &addr, const double &timeout_usec,
+                         const usize &retry = 1) {
+    auto cm = std::make_shared<CM>(addr);
+    auto res = cm->wait_ready(timeout_usec,retry);
+    if (unlikely(res != IOCode::Ok)) {
+      RDMA_LOG(4) << "CM create error with: " << res.code.name() << " " << res.desc;
+      return ::rdmaio::transfer(res,nullptr);
+    }
+    return ::rdmaio::Ok(cm);
+  }
+
+  /*
+   * Future work: currently we assume that CM cm(addr);
+   * we could use varargs for creating the CM.
+   */
+};
+
 } // namespace rdmaio
