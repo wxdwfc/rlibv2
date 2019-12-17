@@ -45,7 +45,8 @@ namespace rdmaio {
   if(cm.wait_ready(1000) == IOCode::Timeout) // wait 1 second for server to
   ready assert(false);
 
-  auto mr_res = cm.fetch_remote_mr(1,attr); // fetch "localhost:1111"'s MR with id **1**
+  auto mr_res = cm.fetch_remote_mr(1,attr); // fetch "localhost:1111"'s MR with
+  id **1**
   // mr_res = Ok,Err,...(err_str, mr_attr)
   if (mr_res == IOCode::Ok) {
   // use attr ...
@@ -196,14 +197,13 @@ public:
     return ::rdmaio::Err(std::make_pair(err_str, temp_key));
   }
 
-  Result<cc_rc_ret_t> cc_rc_msg(
-                            const std::string &qp_name,
-                            const std::string &channel_name,
-                            const usize &msg_sz,
-                            const Arc<::rdmaio::qp::RC> rc,
-                            const ::rdmaio::nic_id_t &nic_id,
-                            const ::rdmaio::qp::QPConfig &config,
-                            const double &timeout_usec = 1000000) {
+  Result<cc_rc_ret_t> cc_rc_msg(const std::string &qp_name,
+                                const std::string &channel_name,
+                                const usize &msg_sz,
+                                const Arc<::rdmaio::qp::RC> rc,
+                                const ::rdmaio::nic_id_t &nic_id,
+                                const ::rdmaio::qp::QPConfig &config,
+                                const double &timeout_usec = 1000000) {
 
     auto err_str = std::string("unknown error");
     u64 temp_key = 0;
@@ -226,10 +226,11 @@ public:
       req.attr = rc->my_attr();
       req.max_recv_sz = msg_sz;
 
-      auto res =
-        rpc.call(proto::CreateRCM, ::rdmaio::Marshal::dump<proto::RCReq>(req));
+      auto res = rpc.call(proto::CreateRCM,
+                          ::rdmaio::Marshal::dump<proto::RCReq>(req));
 
-      // FIXME: below are the same as cc_rc(); maybe refine in a more elegant form
+      // FIXME: below are the same as cc_rc(); maybe refine in a more elegant
+      // form
       if (unlikely(res != IOCode::Ok)) {
         err_str = res.desc;
         goto ErrCase;
@@ -269,7 +270,6 @@ public:
   ErrCase:
     return ::rdmaio::Err(std::make_pair(err_str, temp_key));
   }
-
 
   /*!
     Fetch remote MR identified with "id" at remote machine of this
@@ -360,13 +360,15 @@ public:
 // a helper for hide wait_ready process
 template <class CM = ConnectManager> class CMFactory {
 public:
-  Result<Arc<CM>> create(const std::string &addr, const double &timeout_usec,
-                         const usize &retry = 1) {
+  static Result<Arc<CM>> create(const std::string &addr,
+                                const double &timeout_usec,
+                                const usize &retry = 1) {
     auto cm = std::make_shared<CM>(addr);
-    auto res = cm->wait_ready(timeout_usec,retry);
+    auto res = cm->wait_ready(timeout_usec, retry);
     if (unlikely(res != IOCode::Ok)) {
-      RDMA_LOG(4) << "CM create error with: " << res.code.name() << " " << res.desc;
-      return ::rdmaio::transfer(res,nullptr);
+      RDMA_LOG(4) << "CM create error with: " << res.code.name() << " "
+                  << res.desc;
+      return ::rdmaio::transfer(res, Arc<CM>(nullptr));
     }
     return ::rdmaio::Ok(cm);
   }
