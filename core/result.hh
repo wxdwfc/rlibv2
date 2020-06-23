@@ -89,4 +89,9 @@ inline Result<B> transfer(const Result<A> &a, const B &d) {
   return {.code = a.code, .desc = d};
 }
 
+template <typename A>
+inline Result<> transfer_raw(const Result<A> &a) {
+  return {.code = a.code };
+}
+
 } // namespace rdmaio
