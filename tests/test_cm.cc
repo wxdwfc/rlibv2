@@ -9,7 +9,7 @@ using namespace rdmaio;
 using namespace rdmaio::qp;
 
 TEST(CM, MR) {
-  RCtrl ctrl(8888);
+  RCtrl ctrl(8889);
   ctrl.start_daemon();
 
   // now we register the MR to the CM
@@ -26,7 +26,7 @@ TEST(CM, MR) {
   ctrl.registered_mrs.reg(73,mr);
 
   // 3. fetch it through ethernet
-  ConnectManager cm("localhost:8888");
+  ConnectManager cm("localhost:8889");
   if (cm.wait_ready(1000000,2) ==
       IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
     assert(false);

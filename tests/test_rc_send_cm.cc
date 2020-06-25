@@ -37,13 +37,18 @@ public:
     total_mem -= sz;
     return std::make_pair(ret, key);
   }
+
+  Option<std::pair<rmem::RMem::raw_ptr_t, rmem::RegAttr>>
+  alloc_one_for_remote(const usize &sz) override {
+    return {};
+  }
 };
 
 TEST(RCCM, SR) {
-
+#if 0
   const usize recv_depth = 128;
 
-  RCtrl ctrl(8888);
+  RCtrl ctrl(8899);
   RecvManager<recv_depth, 2048> manager(ctrl);
 
   auto res = RNicInfo::query_dev_names();
@@ -75,7 +80,7 @@ TEST(RCCM, SR) {
 
   ctrl.start_daemon();
   // 3. use the CM to connect for this QP
-  ConnectManager cm("localhost:8888");
+  ConnectManager cm("localhost:8899");
   if (cm.wait_ready(1000000, 2) ==
       IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
     assert(false);
@@ -125,6 +130,7 @@ TEST(RCCM, SR) {
     }
     ASSERT_EQ(recved_msgs, recv_depth);
   }
+#endif
 }
 
 } // namespace test

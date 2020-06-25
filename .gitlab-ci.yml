@@ -1,0 +1,35 @@
+before_script:
+  - python -V  # Print out python version for debugging
+  - pip install toml
+  - git config --global user.email "wxdwfc@gmail.com"
+  - git config --global user.name "wxd"
+  - git submodule sync
+  - git submodule update --init
+
+# run tests using the binary built before
+build:
+  stage: build
+  tags:
+  - rdma
+  script:
+    - cmake .; make ;
+
+test:
+  stage: test
+  tags:
+  - rdma
+  script:
+    - cmake .; make coretest; ./coretest;
+
+example:
+  stage : example
+  tags:
+  - rdma
+  script:
+  - cmake .;
+  - make pclient; make pserver;
+  - ./pserver
+  - ./pclient 
+
+
+
