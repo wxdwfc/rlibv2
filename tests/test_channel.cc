@@ -25,10 +25,10 @@ TEST(Channel, Naming) {
 TEST(Channel, Basic) {
   const usize total_sent = 12;
 
-  auto send_c = SendChannel::create("localhost:8888").value();
+  auto send_c = SendChannel::create("localhost:7777").value();
   RDMA_LOG(2) << "create send channel done";
 
-  auto recv_c = RecvChannel::create(8888).value();
+  auto recv_c = RecvChannel::create(7777).value();
   RDMA_LOG(2) << "create recv channel done";
 
   //auto recv_c_fail = RecvChannel::create(8888);
