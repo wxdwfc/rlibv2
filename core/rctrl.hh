@@ -53,6 +53,10 @@ public:
         std::bind(&RCtrl::fetch_qp_attr_wrapper, this, std::placeholders::_1)));
   }
 
+  ~RCtrl() {
+    this->stop_daemon();
+  }
+
   /*!
     Start the daemon thread for handling RDMA connection requests
    */
