@@ -22,7 +22,7 @@ test:
     - cmake .; make coretest; ./coretest;
 
 example:
-  stage : example
+  stage : deploy
   tags:
   - rdma
   script:
