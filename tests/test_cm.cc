@@ -45,7 +45,7 @@ TEST(CM, MR) {
 }
 
 TEST(CM, QP) {
-  RCtrl ctrl(8888);
+  RCtrl ctrl(6666);
   ctrl.start_daemon();
 
   auto res = RNicInfo::query_dev_names();
@@ -57,7 +57,7 @@ TEST(CM, QP) {
 
   ctrl.registered_qps.reg("test_ud_qp", ud).value();
 
-  ConnectManager cm("localhost:8888");
+  ConnectManager cm("localhost:6666");
   if (cm.wait_ready(1000000, 2) ==
       IOCode::Timeout) // wait 1 second for server to ready, retry 2 times
     assert(false);
