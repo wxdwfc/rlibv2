@@ -28,7 +28,7 @@ example:
   script:
   - cmake .;
   - make pclient; make pserver;
-  - ./pserver
+  - ./pserver &
   - ./pclient 
 
 
