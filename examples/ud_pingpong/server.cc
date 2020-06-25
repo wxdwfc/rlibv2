@@ -31,6 +31,11 @@ public:
     total_mem -= sz;
     return std::make_pair(ret, key);
   }
+
+  Option<std::pair<rmem::RMem::raw_ptr_t, rmem::RegAttr>>
+  alloc_one_for_remote(const usize &sz) override {
+    return {};
+  }
 };
 
 int main(int argc, char **argv) {
