@@ -48,8 +48,9 @@ int main(int argc, char **argv) {
   ctrl.start_daemon();
 
   RDMA_LOG(2) << "RC pingpong server started!";
-  while (1) {
+  for (uint i = 0;i < 10; ++i) {
     // server does nothing because it is RDMA
     sleep(1);
   }
+  RDMA_LOG(4) << "server exit!";
 }
