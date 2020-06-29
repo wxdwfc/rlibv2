@@ -1,0 +1,4 @@
+[[pass]]
+host = "val2"
+path = ''
+cmd  = 'cd /cock/rlib; ./bench_naive --threads=4'

@@ -4,4 +4,5 @@
 target="wxd@cube1"
 ## this script will sync the project to the remote server
 rsync -i -rtuv \
-      $PWD/core $PWD/tests $PWD/examples $PWD/CMakeLists.txt $target:/raid/wxd/rlib/
+      $PWD/../core $PWD/../tests $PWD/../examples $PWD/../benchs $PWD/../CMakeLists.txt \
+      $target:/raid/wxd/rlib/
