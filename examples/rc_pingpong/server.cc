@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
 
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  // start a controler, so that others may access it using UDP based channel
   RCtrl ctrl(FLAGS_port);
   RDMA_LOG(4) << "Pingping server listenes at localhost:" << FLAGS_port;
 
@@ -23,7 +24,7 @@ int main(int argc, char **argv) {
     auto nic =
         RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
 
-    // register the nic with name 0
+    // register the nic with name 0 to the ctrl
     RDMA_ASSERT(ctrl.opened_nics.reg(FLAGS_reg_nic_name, nic));
   }
 
@@ -34,22 +35,26 @@ int main(int argc, char **argv) {
         ctrl.opened_nics.query(FLAGS_reg_nic_name).value()));
   }
 
-  // initialzie the value
+  // initialzie the value so as client can sanity check its content
   u64 *reg_mem = (u64 *)(ctrl.registered_mrs.query(FLAGS_reg_mem_name)
                              .value()
                              ->get_reg_attr()
                              .value()
                              .buf);
+  // setup the value
   for(uint i = 0;i < 12;++i) {
     reg_mem[i] = FLAGS_magic_num + i;
     asm volatile("" ::: "memory");
   }
 
+  // start the listener thread so that client can communicate w it
   ctrl.start_daemon();
 
   RDMA_LOG(2) << "RC pingpong server started!";
-  for (uint i = 0;i < 10; ++i) {
+  // run for 20 seconds
+  for (uint i = 0;i < 20; ++i) {
     // server does nothing because it is RDMA
+    // client will read the reg_mem using RDMA
     sleep(1);
   }
   RDMA_LOG(4) << "server exit!";
