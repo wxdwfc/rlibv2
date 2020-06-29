@@ -44,4 +44,6 @@ private:                                                                       \
 #define likely(x) __builtin_expect(!!(x), 1)
 #endif
 
+static inline void compile_fence(void) { asm volatile("" ::: "memory"); }
+
 } // namespace rdmaio
