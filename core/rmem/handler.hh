@@ -39,7 +39,7 @@ struct __attribute__((packed)) RegAttr {
   Option<RegAttr> attr = reg.get_reg_attr();
   `
  */
-class RegHandler {
+class RegHandler : public std::enable_shared_from_this<RegHandler> {
 
   ibv_mr *mr = nullptr; // mr in the driver
 

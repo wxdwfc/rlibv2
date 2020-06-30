@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "./config.hh"
 #include "./mod.hh"
 #include "./impl.hh"
@@ -23,7 +25,7 @@ const usize kGRHSz = 40;
   `
   // check tests/test_ud.cc
  */
-class UD : public Dummy {
+class UD : public Dummy, public std::enable_shared_from_this<UD> {
 public:
   /*!
     a msg should fill in one packet (4096 bytes); some bytes are reserved

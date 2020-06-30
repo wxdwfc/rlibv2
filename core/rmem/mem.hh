@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 
 #include "../common.hh"
 
@@ -22,7 +23,7 @@ namespace rmem {
   Note, we recommend to use Arc for RegHandler and RNic,
   so that resources can be automatically freed.
  */
-struct RMem { // state for "R"egistered "Mem"ory
+struct RMem : public std::enable_shared_from_this<RMem>  { // state for "R"egistered "Mem"ory
   using raw_ptr_t = void *;
   using alloc_fn_t = std::function<raw_ptr_t(u64)>;
   using dealloc_fn_t = std::function<void(raw_ptr_t)>;

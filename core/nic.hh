@@ -16,7 +16,7 @@ using nic_id_t = u64;
   It does the following thing:
   - open a context, protection domain, and filled the address.
  */
-class RNic {
+class RNic : public std::enable_shared_from_this<RNic> {
 public:
   // context exposed by libibverbs
   struct ibv_context *ctx = nullptr;

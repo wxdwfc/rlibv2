@@ -41,7 +41,7 @@ namespace qp {
                                 .imm_data = 0}
   );
 */
-class RC : public Dummy {
+class RC : public Dummy, public std::enable_shared_from_this<RC> {
 public:
   // default local MR used by this QP
   Option<RegAttr> local_mr;
