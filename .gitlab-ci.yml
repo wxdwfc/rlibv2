@@ -29,7 +29,14 @@ example:
   - cmake .;
   - make pclient; make pserver;
   - ./pserver &
-  - ./pclient 
+  - ./pclient
 
+bench:
+  stage : deploy
+  tags:
+  - rdma
+  script:
+  - cmake .;
+  - make bench_naive
 
 

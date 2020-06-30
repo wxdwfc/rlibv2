@@ -21,5 +21,7 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/examples/gflags)
 
 include(examples/exp.cmake)
 
+include(benchs/bench.cmake)
+
 project (rlib)
 
