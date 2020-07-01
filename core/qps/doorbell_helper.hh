@@ -126,9 +126,9 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   /*!
     \note: not check index
    */
-  inline ibv_send_wr *get_wr_ptr(const uszie &idx) { return &wrs[idx]; }
+  inline ibv_send_wr *get_wr_ptr(const usize &idx) { return &wrs[idx]; }
 
-  inline ibv_sge *get_sge_ptr(const uszie &idx) { return &sges[idx]; }
+  inline ibv_sge *get_sge_ptr(const usize &idx) { return &sges[idx]; }
 
   // some helper functions for verifying the correctness of the wrs/sges
   usize sanity_check_sz() {
