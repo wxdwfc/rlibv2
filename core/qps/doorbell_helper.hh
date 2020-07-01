@@ -56,6 +56,7 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
       wrs[i].next = &(wrs[i + 1]);
       wrs[i].sg_list = &sges[i];
     }
+    wrs[N - 1].next = &(wrs[0]);
   }
 
   /*!
@@ -84,6 +85,18 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
     cur_wr().next = nullptr;
   }
 
+  inline void freeze_at(const usize &idx) {
+    this->get_wr_ptr(idx)->next = nullptr;
+  }
+
+  inline void freeze_done_at(const usize &idx) {
+    if (idx == N - 1) {
+      this->get_wr_ptr(idx)->next = this->first_wr_ptr();
+    } else {
+      this->get_wr_ptr(idx)->next = this->get_wr_ptr(idx + 1);
+    }
+  }
+
   inline void freeze_done() {
     assert(!empty());
     wrs[cur_idx].next = &(wrs[cur_idx + 1]);
@@ -109,6 +122,13 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   }
 
   inline ibv_send_wr *first_wr_ptr() { return &wrs[0]; }
+
+  /*!
+    \note: not check index
+   */
+  inline ibv_send_wr *get_wr_ptr(const uszie &idx) { return &wrs[idx]; }
+
+  inline ibv_sge *get_sge_ptr(const uszie &idx) { return &sges[idx]; }
 
   // some helper functions for verifying the correctness of the wrs/sges
   usize sanity_check_sz() {
