@@ -61,7 +61,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   if (cm.wait_ready(1000000, 2) ==
       IOCode::Timeout)  // wait 1 second for server to ready, retry 2 times
     RDMA_ASSERT(false) << "cm connect to server timeout";
-  
+
   auto qp_res =
       cm.cc_rc("thread-qp"+worker_id, qp, FLAGS_reg_nic_name, QPConfig());
   RDMA_ASSERT(qp_res == IOCode::Ok) << std::get<0>(qp_res.desc);
