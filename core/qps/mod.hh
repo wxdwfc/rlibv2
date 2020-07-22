@@ -96,11 +96,10 @@ public:
 
   /*!
     Poll one completion from the send_cq
-    \param num: number of completions expected
    */
-  inline std::pair<int,ibv_wc> poll_send_comp(const int &num) {
+  inline std::pair<int,ibv_wc> poll_send_comp() {
     ibv_wc wc;
-    auto poll_result = ibv_poll_cq(cq, num, &wc);
+    auto poll_result = ibv_poll_cq(cq, 1, &wc);
     if (poll_result > 0)
       out_signaled -= 1;
     return std::make_pair(poll_result,wc);
@@ -119,7 +118,7 @@ public:
     std::pair<int,ibv_wc> res;
     do {
       // poll one comp
-      res = poll_send_comp(1);
+      res = poll_send_comp();
     } while (res.first == 0 && // poll result is 0
              t.passed_msec() <= timeout);
     if(res.first == 0)

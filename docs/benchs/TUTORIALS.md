@@ -20,7 +20,7 @@ We use CMake to build rib and provide a script file `make.toml` to simplify the 
 
 ```bash
 $cd scripts/
-$./bootstrap.py -f benchs/make.toml
+$./bootstrap.py -f benchs/rw_bench/make.toml
 ```
 
 <a  name="run"></a>
@@ -31,7 +31,7 @@ We provide a script file `run.toml` to simplify the procedure.
 
 ```bash
 $cd scripts/
-$./bootstrap.py -f benchs/run.toml
+$./bootstrap.py -f benchs/rw_bench/run.toml
 ```
 
 The first host is used as server and the rest are clients. You can change `cmd` in `run.toml` to get running params.
