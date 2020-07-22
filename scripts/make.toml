@@ -1,4 +1,4 @@
 [[pass]]
-host = "val2"
+host = "val08"
 path = ''
-cmd  = 'cd /cock/rlib; cmake .; make coretest; make bench_naive;'
+cmd  = 'cd rib/; cmake .; make pclient; make pserver;'

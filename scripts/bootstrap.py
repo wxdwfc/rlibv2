@@ -108,7 +108,7 @@ class ConnectProxy:
     def connect(self,pwd,passp=None,timeout = 30):
         user_config = config.lookup(self.mac)
         if user_config:
-            print("connect", config)
+            print("connect", self.mac)
             #print(user_config)
             #cfg = {'hostname': self.mac, 'username': self.user}
             #cfg['sock'] = paramiko.ProxyCommand(user_config['proxycommand'])
@@ -121,7 +121,7 @@ class ConnectProxy:
 
     def connect_with_pkey(self,keyfile_name,timeout = 10):
         print("connect with pkey")
-        user_config = ssh_config.lookup(self.mac)
+        user_config = config.lookup(self.mac)
         print(user_config)
         if user_config:
             assert False

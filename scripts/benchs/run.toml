@@ -1,0 +1,9 @@
+[[pass]]
+host = "val09"
+path = ''
+cmd  = 'cd rib/; ./bench_server'
+
+[[pass]]
+host = "val08"
+path = ''
+cmd  = 'cd rib/; ./bench_client -threads 4'
