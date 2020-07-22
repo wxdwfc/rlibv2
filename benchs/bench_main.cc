@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "../tests/random.hh"
+
 #include "../core/lib.hh"
 #include "./reporter.hh"
 #include "./thread.hh"
@@ -51,6 +53,9 @@ int main(int argc, char **argv) {
 }
 
 usize worker_fn(const usize &worker_id, Statics *s) {
+
+  ::test::FastRandom rand(0xdeadbeaf + worker_id);
+
   // 1. create a local QP to use
   auto nic =
       RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
@@ -87,7 +92,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   while (running) {
     for (int i = 0; i < FLAGS_para_factor - flying_cnt; ++i) {
       compile_fence();
-      int index = std::rand() % 10000;
+      int index = rand.next() % 10000;
       auto res_s = qp->send_normal(
           {.op = IBV_WR_RDMA_READ,
            .flags = IBV_SEND_SIGNALED,
@@ -115,6 +120,6 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       recv_cnt++;
     }
   }
-  cm.delete_remote_rc("thread-qp"+worker_id, key);
+  cm.delete_remote_rc("thread-qp" + worker_id, key);
   return 0;
 }
