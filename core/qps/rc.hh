@@ -246,7 +246,7 @@ public:
     in the wc, and return the encoded user wr.
    */
   Option<std::pair<u64, ibv_wc>> poll_rc_comp() {
-    auto num_wc = poll_send_comp(1);
+    auto num_wc = poll_send_comp(0);
     if (std::get<0>(num_wc) == 0)
       return {};
     auto &wc = std::get<1>(num_wc);
