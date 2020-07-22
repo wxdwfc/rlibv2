@@ -37,6 +37,6 @@ bench:
   - rdma
   script:
   - cmake .;
-  - make bench_naive
+  - make bench_client; make bench_server;
 
 
