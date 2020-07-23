@@ -1,6 +1,9 @@
 RLib provides several new abstractions for easier use of RDMA.
 It is a header-only library with minimal dependices, i.e., `ibverbs`. 
 
+Please find examples in `./examples` for how to use RLib. 
+For detailed documentations or benchmark results (including code and scripts),
+please check `docs`. 
 
 ## License
 
