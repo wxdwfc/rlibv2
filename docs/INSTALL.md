@@ -1,4 +1,7 @@
-# Installing Rib
+# Installing RLib
+
+This document provides install guide for how to run `RLib`' examples and benchmarks.
+Actually there is nothing to install about RLib itself because it is a header-only library :). 
 
 ## Table of Contents
 
@@ -10,7 +13,7 @@
 <a name="dl"></a>
 ## Preparing and Downloading
 
-You can download rib directly from the Github Repository. If you are one of developers, it is recommended to **fork** your own repository and develop on it afterwards.
+You can download rlib directly from the Github Repository. If you are one of developers, it is recommended to **fork** your own repository and develop on it afterwards.
 
 ```bash
 $git clone https://ipads.se.sjtu.edu.cn:1312/weixd/rib.git --recursive
@@ -21,9 +24,10 @@ $cd rib
 <a name="deps"></a>
 ## Satisfying Dependences
 
-#### Install Rib dependecies on one of your cluster machines
+#### Install RLib dependecies on one of your cluster machines
 
 We use gitmodules (i.e., `.gitmodules`) to download and install required dependencies automatically within the certain sub-directory.
+Note, the dependenices is only required for examples and benchmarks. 
 
 > Currently, we requires gflags.
 
@@ -33,7 +37,7 @@ $git submodule update
 ```
 
 
-#### Copy rib codes to all machines
+#### Copy rlib codes to all machines involved or use distributed file systems like NFS. 
 
 1) Setup password-less SSH between the master node and all other machines.
 
@@ -67,7 +71,7 @@ $./sync_to_server.sh
 <a name="run"></a>
 ## Building and Running
 
-#### Compile rib
+#### Compile rlib from remote
 
 1) Make sure you have installed python3 and required packages for `scripts/bootstrap.py`.
 
@@ -87,14 +91,14 @@ pwd  = config.get("pwd","***")
 ...
 ```
 
-3) We use CMake to build rib and provide a script file `make.toml` to simplify the procedure. You can learn more in detailed `TUTORIALS.md`.
+3) We use CMake to build rlib and provide a script file `make.toml` to simplify the procedure. You can learn more in detailed `TUTORIALS.md`.
 ```bash
 $cd scripts/
 $./bootstrap.py -f make.toml
 ```
 
 
-#### Launch executable file (server + client)
+#### Launch example executable file (server + client)
 
 You can learn more in detailed `TUTORIALS.md`.
 
