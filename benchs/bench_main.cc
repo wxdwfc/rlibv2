@@ -1,3 +1,5 @@
+// XD: change this file name to bench_client.cc ?
+
 #include <gflags/gflags.h>
 
 #include <vector>
@@ -15,7 +17,7 @@ using Thread_t = bench::Thread<usize>;
 
 DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
-DEFINE_string(server_name, "localhost", "Unique name to identify machine.");
+DEFINE_string(server_name, "localhost", "Unique name to identify machine."); // XD: is it better to call it client_name ?
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(para_factor, 20, "#keep <num> queries being processed.");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
