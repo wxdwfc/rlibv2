@@ -2,9 +2,8 @@
 
 #include <vector>
 
-#include "../tests/random.hh"
-
 #include "../core/lib.hh"
+#include "../tests/random.hh"
 #include "./reporter.hh"
 #include "./thread.hh"
 
@@ -16,6 +15,7 @@ using Thread_t = bench::Thread<usize>;
 
 DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
+DEFINE_string(server_name, "localhost", "Unique name to identify machine.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(para_factor, 20, "#keep <num> queries being processed.");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
@@ -67,8 +67,8 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       IOCode::Timeout)  // wait 1 second for server to ready, retry 2 times
     RDMA_ASSERT(false) << "cm connect to server timeout";
 
-  auto qp_res =
-      cm.cc_rc("thread-qp"+worker_id, qp, FLAGS_reg_nic_name, QPConfig());
+  auto qp_res = cm.cc_rc(FLAGS_server_name + " thread-qp" + std::to_string(worker_id), qp,
+                         FLAGS_reg_nic_name, QPConfig());
   RDMA_ASSERT(qp_res == IOCode::Ok) << std::get<0>(qp_res.desc);
 
   auto key = std::get<1>(qp_res.desc);
@@ -85,7 +85,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   qp->bind_local_mr(local_mr->get_reg_attr().value());
 
   RDMA_LOG(4) << "t-" << worker_id << " started";
-  u64 *test_buf = (u64 *)(qp->local_mr.value().buf);
+  u64* test_buf = (u64*)(qp->local_mr.value().buf);
   *test_buf = 0;
 
   u64 recv_cnt = 0, flying_cnt = 0, try_rounds = 5;
@@ -120,6 +120,6 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       recv_cnt++;
     }
   }
-  cm.delete_remote_rc("thread-qp" + worker_id, key);
+  cm.delete_remote_rc(FLAGS_server_name + " thread-qp" + std::to_string(worker_id), key);
   return 0;
 }
