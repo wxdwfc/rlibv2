@@ -96,7 +96,7 @@ private:
 
     auto res_recv = Impl::create_cq(nic, my_config.max_recv_sz());
     if (res_recv != IOCode::Ok) {
-      RDMA_LOG(4) << "Error on creating recv CQ: " << std::get<1>(res.desc);
+      RDMA_LOG(4) << "Error on creating recv CQ: " << std::get<1>(res_recv.desc);
       return;
     }
 

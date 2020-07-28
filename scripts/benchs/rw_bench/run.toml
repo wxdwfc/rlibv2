@@ -6,9 +6,9 @@ cmd  = 'cd rib/; ./bench_server'
 [[pass]]
 host = "val08"
 path = ''
-cmd  = 'cd rib/; ./bench_client -server_name val08 -threads 12'
+cmd  = 'cd rib/; ./bench_client -client_name val08 -threads 12'
 
 [[pass]]
 host = "val10"
 path = ''
-cmd  = 'cd rib/; ./bench_client -server_name val10 -threads 12'
+cmd  = 'cd rib/; ./bench_client -client_name val10 -threads 12'
