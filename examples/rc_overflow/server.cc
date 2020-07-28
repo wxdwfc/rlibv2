@@ -8,6 +8,7 @@ DEFINE_int64(port, 8888, "Server listener (RC) port.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 DEFINE_string(cq_name, "test_channel", "The name to register an receive cq");
+DEFINE_int64(msg_cnt, 20, "The count of sending message");
 
 using namespace rdmaio;
 using namespace rdmaio::rmem;
@@ -72,8 +73,9 @@ int main(int argc, char **argv) {
 
   auto recv_qp = ctrl.registered_qps.query("client_qp").value();
   auto recv_rs = manager.reg_recv_entries.query("client_qp").value();
+  u64 last_seq = 0;
 
-  // run for 20 sec
+  // receive msg for 20 sec
   for (int i = 0; i < 20; ++i) {
     for (RecvIter<Dummy, entry_num> iter(recv_qp, recv_rs); iter.has_msgs();
          iter.next()) {
@@ -81,7 +83,17 @@ int main(int argc, char **argv) {
 
       auto buf = static_cast<char *>(std::get<1>(imm_msg));
       const std::string msg(buf, 2048);  // wrap the received msg
-      RDMA_LOG(2) << "server received one msg: " << msg.data();
+      u64 seq = std::atoi(msg.c_str());
+      if (seq != (last_seq + 1)) {
+        RDMA_LOG(5) << "package loss, last seq " << last_seq << ", current seq "
+                    << seq;
+        return 0;
+      }
+      last_seq++;
+    }
+    if (last_seq == FLAGS_msg_cnt) {
+      RDMA_LOG(4) << "server receive " << last_seq << " msg, no package loss";
+      return 0;
     }
     sleep(1);
   }

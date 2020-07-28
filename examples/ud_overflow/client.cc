@@ -10,6 +10,7 @@ using namespace rdmaio::rmem;
 
 DEFINE_string(addr, "localhost:8888", "Server address to connect to.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
+DEFINE_int64(msg_cnt, 20, "The count of sending message");
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -32,8 +33,7 @@ int main(int argc, char **argv) {
       << std::get<0>(fetch_qp_attr_res.desc);
 
   // 3. register a local buffer for sending messages
-  auto mr = RegHandler::create(Arc<RMem>(new RMem(4000)), nic)
-                .value();  // UD can send at most 4000 bytes
+  auto mr = RegHandler::create(Arc<RMem>(new RMem(4000)), nic).value();
   char *buf = (char *)(mr->get_reg_attr().value().buf);
 
   // 4. prepare the sender structure
@@ -55,10 +55,9 @@ int main(int argc, char **argv) {
 
   RDMA_LOG(2) << "client ready to send pingpong message to the server!";
 
-  // 5. loop for 6 round, and send to remote
-  for (int i = 0; i < 6; ++i) {
-    std::string msg = "test msg " + std::to_string(i);
-    RDMA_LOG(2) << "client send one msg: " << msg.data();
+  // 5. send msg
+  for (int i = 1; i <= FLAGS_msg_cnt; ++i) {
+    std::string msg = std::to_string(i);
     memset(buf, 0, msg.size() + 1);
     memcpy(buf, msg.data(), msg.size());
     sge.length = msg.size() + 1;
@@ -70,8 +69,9 @@ int main(int argc, char **argv) {
     // wait one completion
     auto ret_r = ud->wait_one_comp();
     RDMA_ASSERT(ret_r == IOCode::Ok) << UD::wc_status(ret_r.desc);
-    sleep(0.5);  // send msg before server begin receiving.
-  }
 
+    if (i % 5 == 0) sleep(1);  // send msg before server begin receiving.
+  }
+  RDMA_LOG(2) << "client send " << FLAGS_msg_cnt << " msg.";
   return 0;
 }

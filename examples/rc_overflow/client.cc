@@ -12,6 +12,7 @@ DEFINE_string(addr, "localhost:8888", "Server address to connect to.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 DEFINE_string(cq_name, "test_channel", "The name to register an receive cq");
+DEFINE_int64(msg_cnt, 20, "The count of sending message");
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -47,9 +48,9 @@ int main(int argc, char **argv) {
 
   RDMA_LOG(2) << "ro_client ready to send message to the server!";
 
-  // 5. loop for 6 round, and send to remote
-  for (int i = 0; i < 6; ++i) {
-    std::string msg = "test msg " + std::to_string(i);
+  // 5. send msg
+  for (int i = 1; i <= FLAGS_msg_cnt; ++i) {
+    std::string msg = std::to_string(i);
     memset(buf, 0, msg.size() + 1);
     memcpy(buf, msg.data(), msg.size());
 
@@ -63,11 +64,9 @@ int main(int argc, char **argv) {
          .imm_data = 0});
 
     RDMA_ASSERT(res_s == IOCode::Ok);
-    RDMA_LOG(2) << "client send one msg: " << msg.data();
     auto res_p = qp->wait_one_comp();
     RDMA_ASSERT(res_p == IOCode::Ok);
-    RDMA_LOG(2) << "client finish sending msg " << i;
   }
-
+  RDMA_LOG(2) << "client send " << FLAGS_msg_cnt << " msg.";
   return 0;
 }
