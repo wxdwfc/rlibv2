@@ -15,7 +15,12 @@ add_executable(uoserver "${CMAKE_SOURCE_DIR}/examples/ud_overflow/server.cc")
 add_executable(roclient "${CMAKE_SOURCE_DIR}/examples/rc_overflow/client.cc")
 add_executable(roserver "${CMAKE_SOURCE_DIR}/examples/rc_overflow/server.cc")
 
-set(exps pclient pserver uclient userver uoclient uoserver roclient roserver)
+set(exps
+pclient pserver
+uclient userver
+uoclient uoserver
+roclient roserver
+wserver wclient)
 
 foreach(e ${exps})
  target_link_libraries(${e} pthread ibverbs gflags)
