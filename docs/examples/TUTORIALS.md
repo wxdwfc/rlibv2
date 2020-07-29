@@ -31,6 +31,7 @@ You can type message to send in console when running client and it will be recei
 
 ## rc_overflow
 * An example to show what will happen by using **RC** transport mode when server's memory buffer is overflowed.
+* Server will record how many messages it actually receives and compare it with how many messages client has sent. They are equal as follow.
 
 ```bash
 $cd scripts/
@@ -49,6 +50,7 @@ $./bootstrap.py -f examples/rc_overflow/run.toml
 
 ## ud_overflow
 * An example to show what will happen by using **UD** transport mode when server's memory buffer is overflowed.
+* Server will record how many messages it actually receives and compare it with how many messages client has sent. They are not equal because of ud as follow.
 
 ```bash
 $cd scripts/
