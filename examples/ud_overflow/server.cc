@@ -6,6 +6,7 @@
 DEFINE_int64(port, 8888, "Server listener (UDP) port.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
+DEFINE_int64(msg_cnt, 10000, "The count of sending message");
 
 using namespace rdmaio;
 using namespace rdmaio::rmem;
@@ -43,7 +44,7 @@ int main(int argc, char **argv) {
   RCtrl ctrl(FLAGS_port);
   RDMA_LOG(4) << "(UD) Pingping server listenes at localhost:" << FLAGS_port;
 
-  const usize entry_num = 4;  // If 4, buffer will be overflowed and msg may be dropped.
+  const usize entry_num = 128;
   // first we open the NIC
   auto nic =
       RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
@@ -71,20 +72,28 @@ int main(int argc, char **argv) {
   }
 
   ctrl.start_daemon();
-  sleep(5); // Wait for overflow.
+  sleep(2); // Wait for overflow.
   RDMA_LOG(2) << "server wake up";
+  u64 recv_cnt = 0;
 
-  // run for 20 sec
-  for (int i = 0; i < 20; ++i) {
+  // receive all msgs.
+  while (1) {
     for (RecvIter<UD, entry_num> iter(ud, recv_rs); iter.has_msgs();
          iter.next()) {
       auto imm_msg = iter.cur_msg().value();
 
       auto buf = static_cast<char *>(std::get<1>(imm_msg)) + kGRHSz;
       const std::string msg(buf, 4096);  // wrap the received msg
-      RDMA_LOG(2) << "server received one msg: " << msg.data();
+
+      u64 seq = std::atoi(msg.c_str());
+      recv_cnt++;
+      if (seq >= FLAGS_msg_cnt) {
+        RDMA_LOG(4) << "ud server receive " << recv_cnt << " msg, all "
+                    << FLAGS_msg_cnt << " msg";
+        return 0;
+      }
+      
     }
-    sleep(1);
   }
   return 0;
 }

@@ -1,13 +1,14 @@
 #include <gflags/gflags.h>
 
 #include "../../core/lib.hh"
-#include "../../core/qps/recv_iter.hh"
 #include "../../core/qps/rc_recv_manager.hh"
+#include "../../core/qps/recv_iter.hh"
 
 DEFINE_int64(port, 8888, "Server listener (RC) port.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 DEFINE_string(cq_name, "test_channel", "The name to register an receive cq");
+DEFINE_int64(msg_cnt, 10000, "The count of sending message");
 
 using namespace rdmaio;
 using namespace rdmaio::rmem;
@@ -41,7 +42,7 @@ class SimpleAllocator : public AbsRecvAllocator {
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  const usize entry_num = 4;
+  const usize entry_num = 128;
 
   RCtrl ctrl(FLAGS_port);
   RecvManager<entry_num, 2048> manager(ctrl);
@@ -72,18 +73,26 @@ int main(int argc, char **argv) {
 
   auto recv_qp = ctrl.registered_qps.query("client_qp").value();
   auto recv_rs = manager.reg_recv_entries.query("client_qp").value();
+  u64 recv_cnt = 0;
 
-  // run for 20 sec
-  for (int i = 0; i < 20; ++i) {
+  // receive all msgs.
+  while (1) {
     for (RecvIter<Dummy, entry_num> iter(recv_qp, recv_rs); iter.has_msgs();
          iter.next()) {
       auto imm_msg = iter.cur_msg().value();
 
       auto buf = static_cast<char *>(std::get<1>(imm_msg));
       const std::string msg(buf, 2048);  // wrap the received msg
-      RDMA_LOG(2) << "server received one msg: " << msg.data();
+      
+      u64 seq = std::atoi(msg.c_str());
+      recv_cnt++;
+      if (seq >= FLAGS_msg_cnt) {
+        RDMA_LOG(4) << "rc server receive " << recv_cnt << " msg, all "
+                    << FLAGS_msg_cnt << " msg";
+        return 0;
+      }
     }
-    sleep(1);
+    
   }
   return 0;
 }
