@@ -3,6 +3,7 @@
 
 #include "../../core/lib.hh"
 #include "../../core/qps/mod.hh"
+#include "../../core/utils/timer.hh"
 
 using namespace rdmaio;
 using namespace rdmaio::qp;
@@ -10,7 +11,7 @@ using namespace rdmaio::rmem;
 
 DEFINE_string(addr, "localhost:8888", "Server address to connect to.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
-DEFINE_int64(msg_cnt, 20, "The count of sending message");
+DEFINE_int64(msg_cnt, 10000, "The count of sending message");
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -53,10 +54,11 @@ int main(int argc, char **argv) {
 
   sge.addr = (uintptr_t)(buf);
 
-  RDMA_LOG(2) << "client ready to send pingpong message to the server!";
+  RDMA_LOG(2) << "ud client ready to send message to the server!";
 
+  Timer timer;
   // 5. send msg
-  for (int i = 1; i <= FLAGS_msg_cnt; ++i) {
+  for (int i = 1; i <= (FLAGS_msg_cnt + 1); ++i) {
     std::string msg = std::to_string(i);
     memset(buf, 0, msg.size() + 1);
     memcpy(buf, msg.data(), msg.size());
@@ -70,8 +72,13 @@ int main(int argc, char **argv) {
     auto ret_r = ud->wait_one_comp();
     RDMA_ASSERT(ret_r == IOCode::Ok) << UD::wc_status(ret_r.desc);
 
-    if (i % 5 == 0) sleep(1);  // send msg before server begin receiving.
+    if (i == FLAGS_msg_cnt) {
+      double passed_msec = timer.passed_msec();
+      RDMA_LOG(2) << "ud client send " << FLAGS_msg_cnt << " msg in "
+                  << passed_msec << " msec";
+      sleep(5); // wait server receive all msg, then send finish msg.
+    }
   }
-  RDMA_LOG(2) << "client send " << FLAGS_msg_cnt << " msg.";
+  
   return 0;
 }

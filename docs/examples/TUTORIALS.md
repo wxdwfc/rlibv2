@@ -39,9 +39,9 @@ $./bootstrap.py -f examples/rc_overflow/run.toml
 
 [server.cc:52] (RC) Pingping server listenes at localhost:8888
 [server.cc:68] Register test_channel
-[client.cc:49] ro_client ready to send message to the server!
-[client.cc:70] client send 20 msg
-[server.cc:95] server received 20 msg, no package loss
+[client.cc:49] rc client ready to send message to the server!
+[client.cc:73] rc client send 10000 msg in 177121 msec
+[server.cc:98] rc server receive 10000 msg, all 10000 msg
 [rctrl.hh:91] stop with :3 processed.
 ```
 
@@ -56,9 +56,8 @@ $./bootstrap.py -f examples/ud_overflow/make.toml
 $./bootstrap.py -f examples/ud_overflow/run.toml
 
 [server.cc:76] server wake up
-[client.cc:56] client ready to send pingpong message to the server!
-[server.cc:90] package loss, last seq 4, current seq 6
-[server.cc:90] package loss, last seq 9, current seq 11
-[server.cc:90] package loss, last seq 14, current seq 16
-[client.cc:75] client send 20 msg.
+[client.cc:49] ud client ready to send message to the server!
+[client.cc:73] ud client send 10000 msg in 9751 msec
+[server.cc:98] ud server receive 128 msg, all 10000 msg
+[rctrl.hh:91] stop with :2 processed.
 ```

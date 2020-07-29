@@ -3,6 +3,7 @@
 
 #include "../../core/lib.hh"
 #include "../../core/qps/mod.hh"
+#include "../../core/utils/timer.hh"
 
 using namespace rdmaio;
 using namespace rdmaio::qp;
@@ -12,7 +13,7 @@ DEFINE_string(addr, "localhost:8888", "Server address to connect to.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 DEFINE_string(cq_name, "test_channel", "The name to register an receive cq");
-DEFINE_int64(msg_cnt, 20, "The count of sending message");
+DEFINE_int64(msg_cnt, 10000, "The count of sending message");
 
 int main(int argc, char **argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -46,8 +47,9 @@ int main(int argc, char **argv) {
   qp->bind_remote_mr(remote_attr);
   qp->bind_local_mr(local_mr->get_reg_attr().value());
 
-  RDMA_LOG(2) << "ro_client ready to send message to the server!";
+  RDMA_LOG(2) << "rc client ready to send message to the server!";
 
+  Timer timer;
   // 5. send msg
   for (int i = 1; i <= FLAGS_msg_cnt; ++i) {
     std::string msg = std::to_string(i);
@@ -67,6 +69,8 @@ int main(int argc, char **argv) {
     auto res_p = qp->wait_one_comp();
     RDMA_ASSERT(res_p == IOCode::Ok);
   }
-  RDMA_LOG(2) << "client send " << FLAGS_msg_cnt << " msg.";
+  double passed_msec = timer.passed_msec();
+  RDMA_LOG(2) << "rc client send " << FLAGS_msg_cnt << " msg in " << passed_msec
+              << " msec";
   return 0;
 }
