@@ -1,6 +1,5 @@
 before_script:
   - python -V  # Print out python version for debugging
-  - pip install toml
   - git config --global user.email "wxdwfc@gmail.com"
   - git config --global user.name "wxd"
   - git submodule sync
