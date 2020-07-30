@@ -9,7 +9,6 @@
 #include "./config.hh"
 #include "./mem.hh"
 
-
 namespace rdmaio {
 
 namespace rmem {
@@ -23,6 +22,7 @@ struct __attribute__((packed)) RegAttr {
   uintptr_t buf;
   u64 sz;
   mr_key_t key;
+  mr_key_t lkey;
 };
 
 /*!
@@ -87,7 +87,9 @@ public:
       return {};
     return Option<RegAttr>({.buf = (uintptr_t)(rmem->raw_ptr),
                             .sz = rmem->sz,
-                            .key = mr->rkey});
+                            .key = mr->rkey,
+                            .lkey = mr->lkey,
+      });
   }
 
   ~RegHandler() {
