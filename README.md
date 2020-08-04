@@ -7,8 +7,8 @@ please check `docs`.
 
 ## Example
 
-Example usage:  // read 1 bytes at remote machine with address 0xc using  one-sided RDMA.
-`
+Here is a simplified example of using RLib to implement an one-sided READ:
+```c++
       Arc<RC> qp; // some pre-initialized QP
 
       // An example of using Op to post an one-sided RDMA read.
@@ -24,7 +24,7 @@ Example usage:  // read 1 bytes at remote machine with address 0xc using  one-si
      auto res = qp->wait_one_comp();
      RDMA_ASSERT(res == IOCode::Ok) << "req error: " << res.desc;
      
-`
+```
 
 For more examples, please check the `examples` folder. 
 There is a description of the examples in `docs/examples/` .
