@@ -1,4 +1,4 @@
 [[pass]]
-host = "val08"
+host = "val02"
 path = ''
-cmd  = 'cd rib/; cmake .; make pclient; make pserver;'
+cmd  = 'cd rib/; cmake .; make coretest'

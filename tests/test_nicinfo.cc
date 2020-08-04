@@ -10,6 +10,8 @@ TEST(RNic,Exists) {
 }
 
 TEST(RNic, State) {
+  // check the NIC at this server is activate,
+  // which means that the call to `ibstatus` will result in ACTIVE
   auto nic =
       RNic::create(RNicInfo::query_dev_names().at(0)).value();
   ASSERT_TRUE(nic->is_active());

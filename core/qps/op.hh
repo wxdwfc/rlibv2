@@ -1,5 +1,8 @@
 #pragma once
 
+// XD: header file should be self-contained
+#include "./rc.hh"
+
 namespace rdmaio {
 
 namespace qp {
@@ -28,16 +31,14 @@ using namespace rdmaio::qp;
       op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
  */
-struct Op {
+// XD: shall we rename to RCOp?
+template <usize NSGE = 1> struct Op {
   ibv_send_wr wr;
-  ibv_sge *sg_list;
+  ibv_sge sges[NSGE];
   int sge_index;
 
- public:
-  Op() {
-    sge_index = 0;
-    this->set_num_sge(1);
-  }
+public:
+  Op() : sge_index(0), sges(), wr() { this->wr.num_sge = NSGE; }
 
   inline Op &set_op(const ibv_wr_opcode &op) {
     this->wr.opcode = op;
@@ -88,38 +89,34 @@ struct Op {
     return *this;
   }
 
-  inline Op &set_num_sge(const int &num) {
-    this->wr.num_sge = num;
-    this->sg_list = (ibv_sge *)malloc(sizeof(ibv_sge) * num);
-    return *this;
-  }
-
-  inline bool append_sge(const u64 &addr, const u32 &length,
-                          const u32 &lkey) {
-    if(this->wr.num_sge <= sge_index){
+  inline bool append_sge(const u64 &addr, const u32 &length, const u32 &lkey) {
+    if (this->wr.num_sge <= sge_index) {
       return false;
     }
 
-    this->sg_list[sge_index].addr = addr;
-    this->sg_list[sge_index].length = length;
-    this->sg_list[sge_index].lkey = lkey;
+    this->sges[sge_index] = {
+        .addr = addr,
+        .length = length,
+        .lkey = lkey,
+    };
 
-    sge_index ++;
+    sge_index += 1;
+
     return true;
   }
 
-  inline auto execute(const Arc<RC> &qp, const int &flags,
-                      u64 wr_id = 0) -> Result<std::string> {
+  inline auto execute(const Arc<RC> &qp, const int &flags, u64 wr_id = 0)
+      -> Result<std::string> {
     // to avoid performance overhead of Arc, we first extract QP's raw pointer
     // out
-    RC *qp_ptr = ({  // unsafe code
+    RC *qp_ptr = ({ // unsafe code
       RC *temp = qp.get();
       temp;
     });
 
     this->wr.wr_id = qp_ptr->encode_my_wr(wr_id, 1);
     this->wr.next = nullptr;
-    this->wr.sg_list = this->sg_list;
+    this->wr.sg_list = &(this->sges[0]);
     this->wr.send_flags = flags;
 
     if (this->wr.send_flags & IBV_SEND_SIGNALED) {
@@ -134,6 +131,6 @@ struct Op {
     return Err(std::string(strerror(errno)));
   }
 };
-}  // qp
+} // namespace qp
 
-}  // namespace rdmaio
+} // namespace rdmaio

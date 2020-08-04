@@ -49,7 +49,7 @@ TEST_F(OpTest, basic) {
   *test_loc = 73; // remote mem
   ASSERT_NE(73, test_loc[1]);  // use the next entry to store the read value
 
-  Op op;
+  Op<> op;
   op.set_rdma(mr.buf, mr.key).set_read().set_imm(0);
   ASSERT_TRUE(op.append_sge((u64)(test_loc + 1),
                             sizeof(u64), mr.key));
@@ -75,7 +75,7 @@ TEST_F(OpTest, FetchAdd) {
   auto mr = handler.get_reg_attr().value();
   qp->bind_remote_mr(mr);
   qp->bind_local_mr(mr);
-  
+
   u64 origin_data = 73;
   // ideal: buf[73, 0] -> buf[73+73, 73]
   u64 *test_loc = reinterpret_cast<u64 *>(mr.buf);
@@ -83,7 +83,7 @@ TEST_F(OpTest, FetchAdd) {
   test_loc[1] = 0;  // local mem
   ASSERT_NE(origin_data, test_loc[1]);  // use the next entry to store the read value
 
-  Op op;
+  Op<> op;
   op.set_fetch_add(mr.buf, origin_data, mr.key);
   ASSERT_TRUE(op.append_sge((u64)(test_loc + 1), sizeof(u64), mr.key));
 
@@ -119,7 +119,7 @@ TEST_F(OpTest, CAS) {
   test_loc[0] = 0;            // remote mem
   test_loc[1] = swap_data;    // local mem init with useless data
 
-  Op op;
+  Op<> op;
   op.set_cas(mr.buf, compare_data, swap_data, mr.key);
   ASSERT_TRUE(op.append_sge((u64)(test_loc + 1), sizeof(u64), mr.key));
 
