@@ -60,6 +60,17 @@ public:
     return pd;
   }
 
+  bool is_active() const {
+    if (!valid()) {
+      return false;
+    } else {
+      ibv_port_attr port_attr;
+      auto rc = ibv_query_port(ctx, id.port_id, &port_attr);
+      if (rc >= 0) return (port_attr.state == IBV_PORT_ACTIVE);
+      return false;
+    }
+  }
+
   ~RNic() {
     // pd must he deallocaed before ctx
     if (pd != nullptr) {
