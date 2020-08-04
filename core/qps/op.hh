@@ -7,9 +7,6 @@ namespace rdmaio {
 
 namespace qp {
 
-using namespace rdmaio;
-using namespace rdmaio::qp;
-
 /*!
  Op states for single RDMA one-sided OP.
  This is a simple wrapper over the RC API provided by the RLib,
@@ -18,10 +15,16 @@ using namespace rdmaio::qp;
  Example usage:  // read 1 bytes at remote machine with address 0xc using
  one-sided RDMA.
       Arc<RC> qp; // some pre-initialized QP
+
+      // An example of using Op to post an one-sided RDMA read.
       ::rdmaio::qp::Op op;
       op.set_rdma(rmr.buf + 0xc, rmr.key).set_read().set_imm(0);
       op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
+
+      // post the requests
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
+      // could use poll_comp for waiting the resut to finish
+
  cas operation.
       op.set_cas(mr.buf, compare_data, swap_data, mr.key);
       op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
