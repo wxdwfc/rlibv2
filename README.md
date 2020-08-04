@@ -5,6 +5,30 @@ Please find examples in `./examples` for how to use RLib.
 For detailed documentations or benchmark results (including code and scripts),
 please check `docs`. 
 
+## Example
+
+Example usage:  // read 1 bytes at remote machine with address 0xc using  one-sided RDMA.
+`
+      Arc<RC> qp; // some pre-initialized QP
+
+      // An example of using Op to post an one-sided RDMA read.
+      ::rdmaio::qp::Op op;
+      op.set_rdma(rmr.buf + 0xc, rmr.key).set_read().set_imm(0);
+      op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
+
+      // post the requests
+      auto ret = op.execute(qp, IBV_SEND_SIGNALED);
+      RDMA_ASSERT(ret == IOCode::Ok);
+    
+     // wait for the completion
+     auto res = qp->wait_one_comp();
+     RDMA_ASSERT(res == IOCode::Ok) << "req error: " << res.desc;
+     
+`
+
+For more examples, please check the `examples` folder. 
+There is a description of the examples in `docs/examples/` .
+
 ## License
 
 RLib is released under the [Apache 2.0 license](http://www.apache.org/licenses/LICENSE-2.0.html).
