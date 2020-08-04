@@ -13,7 +13,7 @@ Here is a simplified example of using RLib to implement an one-sided READ:
 
       // An example of using Op to post an one-sided RDMA read.
       ::rdmaio::qp::Op op;
-      op.set_rdma(rmr.buf + 0xc, rmr.key).set_read().set_imm(0);
+      op.set_rdma(rmr.buf + 0xc, rmr.key).set_read();
       op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
 
       // post the requests
