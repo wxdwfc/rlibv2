@@ -65,14 +65,18 @@ public:
     or the NIC is not valid.
     Try: Result<std::string>
    */
-  bool is_active() const {
+  Result<std::string> is_active() const {
     if (!valid()) {
-      return false;
+      return Err(std::string("Context is not valid."));
     } else {
       ibv_port_attr port_attr;
       auto rc = ibv_query_port(ctx, id.port_id, &port_attr);
-      if (rc >= 0) return (port_attr.state == IBV_PORT_ACTIVE);
-      return false;
+      if (rc == 0 && port_attr.state == IBV_PORT_ACTIVE)
+        return Ok(std::string(""));
+      else if (rc == 0 && port_attr.state != IBV_PORT_ACTIVE) {
+        return Err(std::string(ibv_port_state_str(port_attr.state)));
+      }else
+        return Err(std::string(strerror(errno)));
     }
   }
 
@@ -131,7 +135,7 @@ private:
     } else {
       ibv_port_attr port_attr;
       auto rc = ibv_query_port(ctx, idx.port_id, &port_attr);
-      if (rc >= 0)
+      if (rc == 0)
         return Option<u64>(port_attr.lid);
       return {};
     }
