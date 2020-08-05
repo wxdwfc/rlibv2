@@ -1,6 +1,5 @@
 #pragma once
 
-// XD: header file should be self-contained
 #include "./rc.hh"
 
 namespace rdmaio {
@@ -18,20 +17,20 @@ namespace qp {
 
       // An example of using Op to post an one-sided RDMA read.
       ::rdmaio::qp::Op op;
-      op.set_rdma(rmr.buf + 0xc, rmr.key).set_read().set_imm(0);
-      op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
+      op.set_rdma_rbuf(rmr.buf + 0xc, rmr.key).set_read().set_imm(0);
+      op.set_payload((u64)(lmr.buf), sizeof(u64), lmr.key)
 
       // post the requests
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
       // could use poll_comp for waiting the resut to finish
 
  cas operation.
-      op.set_cas(mr.buf, compare_data, swap_data, mr.key);
-      op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
+      op.set_atomic_rbuf(rmr.buf, rmr.key).set_cas(compare_data, swap_data);
+      op.set_payload((u64)(lmr.buf), sizeof(u64), lmr.key)
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
  faa operation.
-      op.set_fetch_add(mr.buf, origin_data, mr.key);
-      op.append_sge((u64)(lmr.buf), sizeof(u64), lmr.key)
+      op.set_atomic_rbuf(rmr.buf, rmr.key).set_fetch_add(add_data);
+      op.set_payload((u64)(lmr.buf), sizeof(u64), lmr.key)
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
  */
 // XD: shall we rename to RCOp?
@@ -58,21 +57,29 @@ public:
     return *this;
   }
 
-  inline Op &set_rdma(const u64 &ra, const u32 &rk) {
+  inline Op &set_rdma_rbuf(const u64 &ra, const u32 &rk) {
     this->wr.wr.rdma.remote_addr = ra;
     this->wr.wr.rdma.rkey = rk;
     return *this;
   }
 
-  inline Op &set_cas(const u64 &ra, const u64 &comp, const u64 &swap,
-                     const u32 &rk) {
-    this->set_atomic(ra, comp, swap, rk);
+  inline Op &set_atomic_rbuf(const u64 &ra, const u32 &rk) {
+    this->wr.wr.atomic.remote_addr = ra;
+    this->wr.wr.atomic.rkey = rk;
+    this->set_imm(0);
+    return *this;
+  }
+
+  inline Op &set_cas(const u64 &comp, const u64 &swap) {
+    this->wr.wr.atomic.compare_add = comp;
+    this->wr.wr.atomic.swap = swap;
     this->set_op(IBV_WR_ATOMIC_CMP_AND_SWP);
     return *this;
   }
 
-  inline Op &set_fetch_add(const u64 &ra, const u64 &add, const u32 &rk) {
-    this->set_atomic(ra, add, 0, rk);
+  inline Op &set_fetch_add(const u64 &add) {
+    this->wr.wr.atomic.compare_add = add;
+    this->wr.wr.atomic.swap = 0;
     this->set_op(IBV_WR_ATOMIC_FETCH_AND_ADD);
     return *this;
   }
@@ -92,7 +99,7 @@ public:
     return *this;
   }
 
-  inline bool append_sge(const u64 &addr, const u32 &length, const u32 &lkey) {
+  inline bool set_payload(const u64 &addr, const u32 &length, const u32 &lkey) {
     if (this->wr.num_sge <= sge_index) {
       return false;
     }
@@ -108,7 +115,7 @@ public:
     return true;
   }
 
-  inline auto execute(const Arc<RC> &qp, const int &flags, u64 wr_id = 0)
+  inline auto execute(const Arc<RC> &qp, const int &flags = 0, u64 wr_id = 0)
       -> Result<std::string> {
     // to avoid performance overhead of Arc, we first extract QP's raw pointer
     // out
