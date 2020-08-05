@@ -29,6 +29,7 @@ namespace qp {
   // example to send an RC request to remote QP
   RC &qp = *rc; // some QP
 
+  // note that send_normal is deprecated; plase check ./op.hh for other usage
   // read sizeof(u64) to (local_addr) at remote address (remote addr)
   auto res_s = qp.send_normal({.op = IBV_WR_RDMA_READ,
                                .flags = IBV_SEND_SIGNALED,

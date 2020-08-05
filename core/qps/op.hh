@@ -33,8 +33,8 @@ namespace qp {
       op.set_payload((u64)(lmr.buf), sizeof(u64), lmr.key)
       auto ret = op.execute(qp, IBV_SEND_SIGNALED);
  */
-// XD: shall we rename to RCOp?
 template <usize NSGE = 1> struct Op {
+  static_assert(NSGE > 0 && NSGE <= 64, "shoud use NSGE in (0,64]");
   ibv_send_wr wr;
   ibv_sge sges[NSGE];
   int sge_index;
