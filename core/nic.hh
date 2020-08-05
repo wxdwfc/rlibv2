@@ -61,9 +61,6 @@ public:
   }
 
   /*!
-    XD: bool is a bad return value, because the user is not aware whether ibv_query_port() is error,
-    or the NIC is not valid.
-    Try: Result<std::string>
    */
   Result<std::string> is_active() const {
     if (!valid()) {
