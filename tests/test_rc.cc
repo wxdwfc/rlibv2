@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../core/qps/rc.hh"
+#include "../core/qps/mod.hh"
 #include "../core/nicinfo.hh"
 
 #include "../core/utils/marshal.hh"

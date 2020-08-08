@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../core/nicinfo.hh"
-#include "../core/qps/rc.hh"
-#include "../core/qps/op.hh"
+#include "../core/qps/mod.hh"
 #include "../core/utils/marshal.hh"
 
 namespace test {
@@ -50,9 +49,8 @@ TEST_F(OpTest, basic) {
   ASSERT_NE(73, test_loc[1]);  // use the next entry to store the read value
 
   Op<> op;
-  op.set_rdma_rbuf(mr.buf, mr.key).set_read().set_imm(0);
-  ASSERT_TRUE(op.set_payload((u64)(test_loc + 1),
-                            sizeof(u64), mr.key));
+  op.set_rdma_rbuf(test_loc, mr.key).set_read().set_imm(0);
+  ASSERT_TRUE(op.set_payload(test_loc + 1, sizeof(u64), mr.key));
 
   auto res_s = op.execute(qp, IBV_SEND_SIGNALED);
 
@@ -84,8 +82,8 @@ TEST_F(OpTest, FetchAdd) {
   ASSERT_NE(origin_data, test_loc[1]);  // use the next entry to store the read value
 
   Op<> op;
-  op.set_atomic_rbuf(mr.buf, mr.key).set_fetch_add(origin_data);
-  ASSERT_TRUE(op.set_payload((u64)(test_loc + 1), sizeof(u64), mr.key));
+  op.set_atomic_rbuf(test_loc, mr.key).set_fetch_add(origin_data);
+  ASSERT_TRUE(op.set_payload(test_loc + 1, sizeof(u64), mr.key));
 
   auto res_s = op.execute(qp, IBV_SEND_SIGNALED);
 
@@ -120,8 +118,8 @@ TEST_F(OpTest, CAS) {
   test_loc[1] = swap_data;    // local mem init with useless data
 
   Op<> op;
-  op.set_atomic_rbuf(mr.buf, mr.key).set_cas(compare_data, swap_data);
-  ASSERT_TRUE(op.set_payload((u64)(test_loc + 1), sizeof(u64), mr.key));
+  op.set_atomic_rbuf(test_loc, mr.key).set_cas(compare_data, swap_data);
+  ASSERT_TRUE(op.set_payload(test_loc + 1, sizeof(u64), mr.key));
 
   auto res_s = op.execute(qp, IBV_SEND_SIGNALED);
 

@@ -2,12 +2,9 @@
 
 #include "../core/nicinfo.hh"
 
-#include "../core/qps/rc.hh"
-#include "../core/qps/recv_iter.hh"
+#include "../core/qps/mod.hh"
 
 #include "../core/utils/marshal.hh"
-
-#include "../core/qps/rc_recv_manager.hh"
 
 #include "../core/lib.hh"
 
