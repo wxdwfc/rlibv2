@@ -36,7 +36,8 @@ const usize kNMaxDoorbell = 16;
   doorbell.clear(); // re-set the counter
   `
 */
-template <usize N = kNMaxDoorbell> struct DoorbellHelper {
+template <usize N = kNMaxDoorbell>
+struct DoorbellHelper {
   ibv_send_wr wrs[N];
   ibv_sge sges[N];
 
@@ -68,8 +69,7 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
 
   bool next() {
     // assert(!full());
-    if (unlikely(full()))
-      return false;
+    if (unlikely(full())) return false;
     cur_idx += 1;
     return true;
   }
@@ -133,8 +133,7 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   // some helper functions for verifying the correctness of the wrs/sges
   usize sanity_check_sz() {
     auto cur_ptr = first_wr_ptr();
-    if (empty())
-      return 0;
+    if (empty()) return 0;
 
     for (uint i = 0; i < N; ++i) {
       cur_ptr = cur_ptr->next;
@@ -147,6 +146,6 @@ template <usize N = kNMaxDoorbell> struct DoorbellHelper {
   }
 };
 
-} // namespace qp
+}  // namespace qp
 
-} // namespace rdmaio
+}  // namespace rdmaio

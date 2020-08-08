@@ -4,10 +4,10 @@
 
 #include <vector>
 
-#include "../core/lib.hh"
-#include "../tests/random.hh"
-#include "./reporter.hh"
-#include "./thread.hh"
+#include "../../core/lib.hh"
+#include "../../tests/random.hh"
+#include "../reporter.hh"
+#include "../thread.hh"
 
 using namespace rdmaio;  // warning: should not use it in a global space often
 using namespace rdmaio::qp;
@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 }
 
 usize worker_fn(const usize &worker_id, Statics *s) {
-
+  Statics &ss = *s;
   ::test::FastRandom rand(0xdeadbeaf + worker_id);
 
   // 1. create a local QP to use
@@ -69,8 +69,9 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       IOCode::Timeout)  // wait 1 second for server to ready, retry 2 times
     RDMA_ASSERT(false) << "cm connect to server timeout";
 
-  auto qp_res = cm.cc_rc(FLAGS_client_name + " thread-qp" + std::to_string(worker_id), qp,
-                         FLAGS_reg_nic_name, QPConfig());
+  auto qp_res =
+      cm.cc_rc(FLAGS_client_name + " thread-qp" + std::to_string(worker_id), qp,
+               FLAGS_reg_nic_name, QPConfig());
   RDMA_ASSERT(qp_res == IOCode::Ok) << std::get<0>(qp_res.desc);
 
   auto key = std::get<1>(qp_res.desc);
@@ -87,24 +88,23 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   qp->bind_local_mr(local_mr->get_reg_attr().value());
 
   RDMA_LOG(4) << "t-" << worker_id << " started";
-  u64* test_buf = (u64*)(qp->local_mr.value().buf);
+  u64 *test_buf = (u64 *)(qp->local_mr.value().buf);
   *test_buf = 0;
+  u64 *remote_buf = (u64 *)remote_attr.buf;
+
+  Op<> op;
+  op.set_read().set_imm(0);
+  op.set_payload(test_buf, sizeof(u64), qp->local_mr.value().key);
 
   u64 recv_cnt = 0, flying_cnt = 0, try_rounds = 5;
   while (running) {
     for (int i = 0; i < FLAGS_para_factor - flying_cnt; ++i) {
       compile_fence();
       int index = rand.next() % 10000;
-      auto res_s = qp->send_normal(
-          {.op = IBV_WR_RDMA_READ,
-           .flags = IBV_SEND_SIGNALED,
-           .len = sizeof(u64),
-           .wr_id = worker_id},
-          {.local_addr = reinterpret_cast<RMem::raw_ptr_t>(test_buf),
-           .remote_addr = index * sizeof(u64),
-           .imm_data = 0});
+      op.set_rdma_rbuf(remote_buf + index, remote_attr.key);
+      auto res_s = op.execute(qp, IBV_SEND_SIGNALED);
       RDMA_ASSERT(res_s == IOCode::Ok);
-      s->increment();  // finish one request
+      ss.increment();  // finish one request
     }
 
     for (int i = 0; i < try_rounds; i++) {
@@ -113,15 +113,16 @@ usize worker_fn(const usize &worker_id, Statics *s) {
         recv_cnt++;
       }
     }
-    flying_cnt = s->data.counter - recv_cnt;
+    flying_cnt = ss.data.counter - recv_cnt;
   }
   RDMA_LOG(4) << "t-" << worker_id << " stoped";
-  while (recv_cnt < s->data.counter) {
+  while (recv_cnt < ss.data.counter) {
     auto res_p = qp->wait_one_comp(0);
     if (res_p == IOCode::Ok) {
       recv_cnt++;
     }
   }
-  cm.delete_remote_rc(FLAGS_client_name + " thread-qp" + std::to_string(worker_id), key);
+  cm.delete_remote_rc(
+      FLAGS_client_name + " thread-qp" + std::to_string(worker_id), key);
   return 0;
 }

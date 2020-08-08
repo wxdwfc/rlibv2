@@ -21,7 +21,7 @@ struct alignas(128) Statics {
 
   char pad[128 - sizeof(data)];
 
-  void increment() { data.counter += 1; }
+  void increment(int d = 1) { data.counter += d; }
 
   void increment_gap_1(u64 d) { data.counter1 += d; }
 };
