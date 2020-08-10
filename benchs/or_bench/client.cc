@@ -17,7 +17,7 @@ DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
 DEFINE_string(client_name, "localhost", "Unique name to identify machine.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
-DEFINE_int64(or_factor, 10, "one reply among <num> requests");
+DEFINE_int64(or_factor, 50, "one reply among <num> requests");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 
@@ -97,22 +97,31 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   op.set_read().set_imm(0);
   op.set_payload(test_buf, sizeof(u64), qp->local_mr.value().key);
 
+  int or_max = qp->my_config.max_send_sz() / 2;
+
   while (running) {
-    for (int i = 0; i < FLAGS_or_factor; ++i) {
+    int or_idx = 0;
+    for (int i = 0; i < FLAGS_or_factor; ++i, ++or_idx) {
       compile_fence();
       int index = rand.next() % 10000;
       op.set_rdma_rbuf(remote_buf + index, remote_attr.key);
 
       int flags = 0;
-      if (i == 0) {
+      if (or_idx == 0 || or_idx >= or_max) {
         flags = IBV_SEND_SIGNALED;
+        or_idx = 0;
       }
       auto res_s = op.execute(qp, flags);
       RDMA_ASSERT(res_s == IOCode::Ok);
-      ss.increment();  // finish one request
+
+      if (flags == IBV_SEND_SIGNALED && i != 0) {
+        auto res_p = qp->wait_one_comp();
+        RDMA_ASSERT(res_p == IOCode::Ok);
+      }
     }
     auto res_p = qp->wait_one_comp();
     RDMA_ASSERT(res_p == IOCode::Ok);
+    ss.increment(FLAGS_or_factor);
   }
   RDMA_LOG(4) << "t-" << worker_id << " stoped";
 

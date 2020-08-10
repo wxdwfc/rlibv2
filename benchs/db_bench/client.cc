@@ -17,7 +17,7 @@ DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
 DEFINE_string(client_name, "localhost", "Unique name to identify machine.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
-DEFINE_int64(or_factor, 10, "one reply among <num> requests");
+DEFINE_int64(or_factor, 50, "one reply among <num> requests");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 
@@ -94,7 +94,9 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   u64 *remote_buf = (u64 *)remote_attr.buf;
 
   const int db_factor = 10;
-  
+  RDMA_ASSERT(db_factor < FLAGS_or_factor &&
+              (FLAGS_or_factor % db_factor == 0));
+
   Op<> ops[db_factor];
   for (int i = 0; i < db_factor; ++i) {
     ops[i].set_payload(test_buf, sizeof(u64), qp->local_mr.value().key);
@@ -104,8 +106,11 @@ usize worker_fn(const usize &worker_id, Statics *s) {
     }
   }
 
+  int or_max = qp->my_config.max_send_sz() / 2;
+
   while (running) {
-    for (int i = 0; i < FLAGS_or_factor; ++i) {
+    int or_idx = 0;
+    for (int i = 0; i < FLAGS_or_factor; i += db_factor, or_idx += db_factor) {
       compile_fence();
       // access remote data randomly
       for (int j = 0; j < db_factor; ++j) {
@@ -114,17 +119,22 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       }
 
       int flags = 0;
-      if (i == 0) {
+      if (or_idx == 0 || or_idx >= or_max) {
         flags = IBV_SEND_SIGNALED;
+        or_idx = 0;
       }
       ops[db_factor - 1].set_flags(flags);
-
       auto res_s = ops[0].execute_batch(qp);
       RDMA_ASSERT(res_s == IOCode::Ok);
-      ss.increment(db_factor);  // finish one request
+
+      if (flags == IBV_SEND_SIGNALED && i != 0) {
+        auto res_p = qp->wait_one_comp();
+        RDMA_ASSERT(res_p == IOCode::Ok);
+      }
     }
     auto res_p = qp->wait_one_comp();
     RDMA_ASSERT(res_p == IOCode::Ok);
+    ss.increment(FLAGS_or_factor);
   }
   RDMA_LOG(4) << "t-" << worker_id << " stoped";
 
