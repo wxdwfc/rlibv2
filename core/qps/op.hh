@@ -6,6 +6,13 @@ namespace rdmaio {
 
 namespace qp {
 
+enum op_type {
+  RDMA_READ = 0,
+  RDMA_WRITE = 1,
+  ATOMIC_CAS = 2,
+  ATOMIC_FAA = 3,
+};
+
 /*!
  Op states for single RDMA one-sided OP.
  This is a simple wrapper over the RC API provided by the RLib,

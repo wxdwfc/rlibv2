@@ -8,6 +8,7 @@
 #include "../tests/random.hh"
 #include "./reporter.hh"
 #include "./thread.hh"
+#include "./bench_op.hh"
 
 using namespace rdmaio;  // warning: should not use it in a global space often
 using namespace rdmaio::qp;
@@ -18,6 +19,7 @@ using Thread_t = bench::Thread<usize>;
 DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
 DEFINE_string(client_name, "localhost", "Unique name to identify machine.");
+DEFINE_int64(op_type, 0, "RDMA_READ(0) RDMA_WRITE(1) ATOMIC_CAS(2) ATOMIC_FAA(3)");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
@@ -56,8 +58,6 @@ int main(int argc, char **argv) {
 usize worker_fn(const usize &worker_id, Statics *s) {
   Statics &ss = *s;
 
-  ::test::FastRandom rand(0xdeadbeaf + worker_id);
-
   // 1. create a local QP to use
   auto nic =
       RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
@@ -91,14 +91,14 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   *test_buf = 0;
   u64 *remote_buf = (u64 *)remote_attr.buf;
 
-  Op<> op;
-  op.set_read().set_imm(0);
-  op.set_payload(test_buf, sizeof(u64), qp->local_mr.value().key);
+  BenchOp<1> op(FLAGS_op_type);
+  op.init_lbuf(test_buf, sizeof(u64), qp->local_mr.value().key, 1000);
+  op.init_rbuf(remote_buf, remote_attr.key, 10000);
+  RDMA_ASSERT(op.valid());
 
   while (running) {
     compile_fence();
-    int index = rand.next() % 10000;
-    op.set_rdma_rbuf(remote_buf + index, remote_attr.key);
+    op.refresh();
     auto res_s = op.execute(qp, IBV_SEND_SIGNALED);
     RDMA_ASSERT(res_s == IOCode::Ok);
     auto res_p = qp->wait_one_comp();
