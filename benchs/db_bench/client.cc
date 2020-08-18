@@ -6,6 +6,7 @@
 #include "../../tests/random.hh"
 #include "../reporter.hh"
 #include "../thread.hh"
+#include "../bench_op.hh"
 
 using namespace rdmaio;
 using namespace rdmaio::qp;
@@ -17,6 +18,8 @@ DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
 DEFINE_string(client_name, "localhost", "Unique name to identify machine.");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
+DEFINE_int64(op_type, 0,
+             "RDMA_READ(0) RDMA_WRITE(1) ATOMIC_CAS(2) ATOMIC_FAA(3)");
 DEFINE_int64(or_factor, 50, "one reply among <num> requests");
 DEFINE_int64(reg_nic_name, 73, "The name to register an opened NIC at rctrl.");
 DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
@@ -97,10 +100,12 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   RDMA_ASSERT(db_factor < FLAGS_or_factor &&
               (FLAGS_or_factor % db_factor == 0));
 
-  Op<> ops[db_factor];
+  BenchOp<> ops[db_factor];
   for (int i = 0; i < db_factor; ++i) {
-    ops[i].set_payload(test_buf, sizeof(u64), qp->local_mr.value().key);
-    ops[i].set_imm(0).set_wrid(i).set_read();
+    ops[i].set_type(FLAGS_op_type);
+    ops[i].init_lbuf(test_buf, sizeof(u64), qp->local_mr.value().key, 1000);
+    ops[i].init_rbuf(remote_buf, remote_attr.key, 10000);
+    ops[i].set_wrid(i);
     if (i != 0) {
       ops[i - 1].set_next(&(ops[i]));
     }
@@ -114,8 +119,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       compile_fence();
       // access remote data randomly
       for (int j = 0; j < db_factor; ++j) {
-        int index = rand.next() % 10000;
-        ops[j].set_rdma_rbuf(remote_buf + index, remote_attr.key);
+        ops[j].refresh();
       }
 
       int flags = 0;
