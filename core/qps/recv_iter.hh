@@ -60,13 +60,18 @@ public:
 
   inline bool has_msgs() const { return idx < total_msgs; }
 
-  ~RecvIter() {
-    // post recvs
+  void clear() {
     if (total_msgs > 0 && qp != nullptr && entries != nullptr) {
       auto res = qp->post_recvs(*entries, total_msgs);
       if (unlikely(res != IOCode::Ok))
         RDMA_LOG(4) << "post recv error: " << strerror(res.desc);
     }
+    this->total_msgs = 0;
+  }
+
+  ~RecvIter() {
+    // post recvs
+    this->clear();
   }
 };
 
