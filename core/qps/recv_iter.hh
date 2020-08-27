@@ -66,7 +66,7 @@ public:
       if (unlikely(res != IOCode::Ok))
         RDMA_LOG(4) << "post recv error: " << strerror(res.desc);
     }
-    this->total_msgs = 0;
+    this->total_msgs = -1;
   }
 
   ~RecvIter() {
