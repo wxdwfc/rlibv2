@@ -28,7 +28,7 @@ template <typename QP, usize es> class RecvIter {
   ibv_wc *wcs;
 
   int idx = 0;
-  const int total_msgs = -1;
+  int total_msgs = -1;
 
 public:
   RecvIter(ibv_cq *cq, ibv_wc *wcs)
