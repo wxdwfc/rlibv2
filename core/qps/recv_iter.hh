@@ -51,6 +51,7 @@ public:
 
   void begin(Arc<QP> &qp, ibv_wc *wcs) {
     this->total_msgs = ibv_poll_cq(qp->recv_cq, es, wcs);
+    this->idx = 0;
   }
 
   /*!
