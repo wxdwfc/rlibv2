@@ -31,6 +31,8 @@ template <typename QP, usize es> class RecvIter {
   int total_msgs = -1;
 
 public:
+  RecvIter() = default;
+
   RecvIter(ibv_cq *cq, ibv_wc *wcs)
       : wcs(wcs), total_msgs(ibv_poll_cq(cq, es, wcs)) {}
 
