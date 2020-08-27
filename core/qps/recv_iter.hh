@@ -43,6 +43,12 @@ public:
     entries = e.get();
   }
 
+  auto set_meta(Arc<QP> &qp, Arc<RecvEntries<es>> &e) {
+    this->entries = e.get();
+    this->qp  = qp.get();
+    this->wcs = e->wcs;
+  }
+
   void begin(Arc<QP> &qp, ibv_wc *wcs) {
     this->total_msgs = ibv_poll_cq(qp->recv_cq, es, wcs);
   }
