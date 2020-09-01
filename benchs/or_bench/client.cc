@@ -7,6 +7,8 @@
 #include "../reporter.hh"
 #include "../thread.hh"
 
+#include "../../core/qps/op.hh"
+
 using namespace rdmaio;
 using namespace rdmaio::qp;
 using namespace rdmaio::rmem;
