@@ -9,6 +9,8 @@
 #include "../reporter.hh"
 #include "../thread.hh"
 
+#include "../../core/qps/op.hh"
+
 using namespace rdmaio;  // warning: should not use it in a global space often
 using namespace rdmaio::qp;
 using namespace rdmaio::rmem;
