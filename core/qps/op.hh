@@ -78,6 +78,12 @@ public:
     return *this;
   }
 
+  inline Op &set_rdma_addr(const u64 &off, const RegAttr &attr) {
+    this->wr.wr.rdma.remote_addr = off + attr.buf;
+    this->wr.wr.rdma.rkey = attr.key;
+    return *this;
+  }
+
   inline Op &set_atomic_rbuf(const u64 *ra, const u32 &rk) {
     this->wr.wr.atomic.remote_addr = (u64)ra;
     this->wr.wr.atomic.rkey = rk;
