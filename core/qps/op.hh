@@ -159,9 +159,9 @@ public:
     auto res = ibv_post_send(qp_ptr->qp, &this->wr, &bad_sr);
 
     if (0 == res) {
-      return Ok(std::string(""));
+      return ::rdmaio::Ok(std::string(""));
     }
-    return Err(std::string(strerror(errno)));
+    return ::rdmaio::Err(std::string(strerror(errno)));
   }
 
   inline auto execute(const Arc<RC> &qp, const int &flags = 0, u64 wr_id = 0)
