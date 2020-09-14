@@ -79,11 +79,11 @@ $./db_client -client_name val08 -threads 12
 ```bash
 $cd r2
 $make co_client
-$./co_client -client_name val08 -threads 12
+$./co_client -client_name val08 -threads 12 -coroutines 10
 ```
 
-   |          Setup          | per-thread | peek    |
-   | ----------------------- | ---------- | ------- |
-   | 1 clients * 12 threads  | 0.8M       | 9.7M    |
-   | 2 clients * 12 threads  | 0.8M       | 19.4M   |
-   | 3 clients * 12 threads  | 0.8M       | 29.1M   |
+   |          Setup          | per-thread | peek   |
+   | ----------------------- | ---------- | ------ |
+   | 1 clients * 12 threads  | 2.25M      | 27M    |
+   | 2 clients * 12 threads  | 2.25M      | 54M    |
+   | 3 clients * 12 threads  | 2.25M      | 81M    |
