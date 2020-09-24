@@ -72,7 +72,8 @@ public:
     return *this;
   }
 
-  inline Op &set_rdma_rbuf(const u64 *ra, const u32 &rk) {
+  template <typename T>
+  inline Op &set_rdma_rbuf(const T *ra, const u32 &rk) {
     this->wr.wr.rdma.remote_addr = (u64) ra;
     this->wr.wr.rdma.rkey = rk;
     return *this;
