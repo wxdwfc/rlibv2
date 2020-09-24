@@ -130,7 +130,8 @@ public:
     return *this;
   }
 
-  inline bool set_payload(const u64 *addr, const u32 &length, const u32 &lkey, const u32 index = 0) {
+  template <typename T>
+  inline bool set_payload(const T *addr, const u32 &length, const u32 &lkey, const u32 index = 0) {
     if (this->wr.num_sge <= index) {
       return false;
     }
