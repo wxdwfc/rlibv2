@@ -1,24 +1,14 @@
 #pragma once
 
-#if __cplusplus > 201402L
-#include <optional>
-#else
-/**
- * Disable warning.
- * Basically optional is very useful.
- */
-//#pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-W#warnings"
+#if defined(__GNUC__) && __GNUC__ < 7
 #include <experimental/optional>
-//#pragma GCC diagnostic pop
+#ifndef optional
+#define optional experimental::optional
+#endif
+#else
+#include <optional>
 #endif
 
 namespace rdmaio {
-#if __cplusplus > 201402L
-template<typename T>
 using Option = std::optional<T>;
-#else
-template<typename T>
-using Option = std::experimental::optional<T>;
-#endif
 }
