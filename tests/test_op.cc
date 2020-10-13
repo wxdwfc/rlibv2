@@ -4,6 +4,8 @@
 #include "../core/qps/mod.hh"
 #include "../core/utils/marshal.hh"
 
+#include "../core/qps/op.hh"
+
 namespace test {
 
 using namespace rdmaio::qp;

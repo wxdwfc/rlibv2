@@ -72,9 +72,16 @@ public:
     return *this;
   }
 
-  inline Op &set_rdma_rbuf(const u64 *ra, const u32 &rk) {
+  template <typename T>
+  inline Op &set_rdma_rbuf(const T ra, const u32 &rk) {
     this->wr.wr.rdma.remote_addr = (u64) ra;
     this->wr.wr.rdma.rkey = rk;
+    return *this;
+  }
+
+  inline Op &set_rdma_addr(const u64 &off, const RegAttr &attr) {
+    this->wr.wr.rdma.remote_addr = off + attr.buf;
+    this->wr.wr.rdma.rkey = attr.key;
     return *this;
   }
 
@@ -124,7 +131,8 @@ public:
     return *this;
   }
 
-  inline bool set_payload(const u64 *addr, const u32 &length, const u32 &lkey, const u32 index = 0) {
+  template <typename T>
+  inline bool set_payload(const T *addr, const u32 &length, const u32 &lkey, const u32 index = 0) {
     if (this->wr.num_sge <= index) {
       return false;
     }
@@ -153,9 +161,9 @@ public:
     auto res = ibv_post_send(qp_ptr->qp, &this->wr, &bad_sr);
 
     if (0 == res) {
-      return Ok(std::string(""));
+      return ::rdmaio::Ok(std::string(""));
     }
-    return Err(std::string(strerror(errno)));
+    return ::rdmaio::Err(std::string(strerror(errno)));
   }
 
   inline auto execute(const Arc<RC> &qp, const int &flags = 0, u64 wr_id = 0)

@@ -28,9 +28,11 @@ template <typename QP, usize es> class RecvIter {
   ibv_wc *wcs;
 
   int idx = 0;
-  const int total_msgs = -1;
+  int total_msgs = -1;
 
 public:
+  RecvIter() = default;
+
   RecvIter(ibv_cq *cq, ibv_wc *wcs)
       : wcs(wcs), total_msgs(ibv_poll_cq(cq, es, wcs)) {}
 
@@ -41,8 +43,15 @@ public:
     entries = e.get();
   }
 
+  auto set_meta(Arc<QP> &qp, Arc<RecvEntries<es>> &e) {
+    this->entries = e.get();
+    this->qp  = qp.get();
+    this->wcs = e->wcs;
+  }
+
   void begin(Arc<QP> &qp, ibv_wc *wcs) {
     this->total_msgs = ibv_poll_cq(qp->recv_cq, es, wcs);
+    this->idx = 0;
   }
 
   /*!
@@ -60,13 +69,18 @@ public:
 
   inline bool has_msgs() const { return idx < total_msgs; }
 
-  ~RecvIter() {
-    // post recvs
+  void clear() {
     if (total_msgs > 0 && qp != nullptr && entries != nullptr) {
       auto res = qp->post_recvs(*entries, total_msgs);
       if (unlikely(res != IOCode::Ok))
         RDMA_LOG(4) << "post recv error: " << strerror(res.desc);
     }
+    this->total_msgs = -1;
+  }
+
+  ~RecvIter() {
+    // post recvs
+    this->clear();
   }
 };
 
