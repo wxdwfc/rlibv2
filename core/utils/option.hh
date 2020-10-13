@@ -10,5 +10,5 @@
 #endif
 
 namespace rdmaio {
-using Option = std::optional<T>;
+template <typename T> using Option = std::optional<T>;
 }
