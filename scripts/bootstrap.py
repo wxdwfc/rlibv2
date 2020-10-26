@@ -107,7 +107,8 @@ class ConnectProxy:
 
     def connect(self,pwd,passp=None,timeout = 30):
         user_config = config.lookup(self.mac)
-        if user_config:
+        #print(user_config)
+        if user_config and ("proxycommand" in user_config):
             print("connect", self.mac)
             #print(user_config)
             #cfg = {'hostname': self.mac, 'username': self.user}

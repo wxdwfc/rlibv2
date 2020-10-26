@@ -18,6 +18,7 @@ using Thread_t = bench::Thread<usize>;
 
 DEFINE_string(addr, "val09:8888", "Server address to connect to.");
 DEFINE_int64(threads, 1, "#Threads used.");
+DEFINE_int64(payload, 1024, "Payload of each req");
 DEFINE_string(client_name, "localhost", "Unique name to identify machine.");
 DEFINE_int64(op_type, 0, "RDMA_READ(0) RDMA_WRITE(1) ATOMIC_CAS(2) ATOMIC_FAA(3)");
 DEFINE_int64(use_nic_idx, 0, "Which NIC to create QP");
@@ -44,7 +45,8 @@ int main(int argc, char **argv) {
     w->start();
   }
 
-  Reporter::report_thpt(worker_statics, 10);  // report for 10 seconds
+  //Reporter::report_thpt(worker_statics, 10);  // report for 10 seconds
+  Reporter::report_bandwidth(worker_statics, 10, FLAGS_payload);  // report for 10 seconds
   running = false;                            // stop workers
 
   // wait for workers to join
@@ -59,8 +61,9 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   Statics &ss = *s;
 
   // 1. create a local QP to use
+  // FIXME: hard coded the nic selection to worker_id % 2
   auto nic =
-      RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx)).value();
+    RNic::create(RNicInfo::query_dev_names().at(worker_id % 2)).value();
   auto qp = RC::create(nic, QPConfig()).value();
 
   // 2. create the pair QP at server using CM
@@ -69,8 +72,9 @@ usize worker_fn(const usize &worker_id, Statics *s) {
       IOCode::Timeout)  // wait 1 second for server to ready, retry 2 times
     RDMA_ASSERT(false) << "cm connect to server timeout";
 
+  // FIXME: hard coded the remote nic selection to worker_id % 2
   auto qp_res = cm.cc_rc(FLAGS_client_name + " thread-qp" + std::to_string(worker_id), qp,
-                         FLAGS_reg_nic_name, QPConfig());
+                         worker_id % 2, QPConfig());
   RDMA_ASSERT(qp_res == IOCode::Ok) << std::get<0>(qp_res.desc);
 
   auto key = std::get<1>(qp_res.desc);
@@ -79,7 +83,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   auto local_mem = Arc<RMem>(new RMem(1024 * 1024 * 20));  // 20M
   auto local_mr = RegHandler::create(local_mem, nic).value();
 
-  auto fetch_res = cm.fetch_remote_mr(FLAGS_reg_mem_name);
+  auto fetch_res = cm.fetch_remote_mr(worker_id % 2);
   RDMA_ASSERT(fetch_res == IOCode::Ok) << std::get<0>(fetch_res.desc);
   rmem::RegAttr remote_attr = std::get<1>(fetch_res.desc);
 
@@ -92,7 +96,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
   u64 *remote_buf = (u64 *)remote_attr.buf;
 
   BenchOp<1> op(FLAGS_op_type);
-  op.init_lbuf(test_buf, sizeof(u64), qp->local_mr.value().key, 1000);
+  op.init_lbuf(test_buf, FLAGS_payload, qp->local_mr.value().key, 1000);
   op.init_rbuf(remote_buf, remote_attr.key, 10000);
   RDMA_ASSERT(op.valid());
 

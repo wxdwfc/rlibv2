@@ -20,23 +20,26 @@ int main(int argc, char **argv) {
 
     // first we open the NIC
     {
+      for (uint i = 0; i < RNicInfo::query_dev_names().size(); ++i) {
         auto nic =
-            RNic::create(RNicInfo::query_dev_names().at(FLAGS_use_nic_idx))
+            RNic::create(RNicInfo::query_dev_names().at(i))
                 .value();
 
         // register the nic with name 0 to the ctrl
-        RDMA_ASSERT(ctrl.opened_nics.reg(FLAGS_reg_nic_name, nic));
+        RDMA_ASSERT(ctrl.opened_nics.reg(i, nic));
+      }
     }
 
     {
+      for (uint i = 0; i < RNicInfo::query_dev_names().size(); ++i)
         // allocate a memory (with 20M) so that remote QP can access it
         RDMA_ASSERT(ctrl.registered_mrs.create_then_reg(
-            FLAGS_reg_mem_name, Arc<RMem>(new RMem(1024*1024*20)),
-            ctrl.opened_nics.query(FLAGS_reg_nic_name).value()));
-    }
+            i, Arc<RMem>(new RMem(1024 * 1024 * 64)),
+            ctrl.opened_nics.query(i).value())) << "reg mem at: " << i << " error";
+      }
 
     // initialzie the value so as client can sanity check its content
-    u64 *reg_mem = (u64 *)(ctrl.registered_mrs.query(FLAGS_reg_mem_name)
+    u64 *reg_mem = (u64 *)(ctrl.registered_mrs.query(0)
                                .value()
                                ->get_reg_attr()
                                .value()
@@ -52,7 +55,7 @@ int main(int argc, char **argv) {
 
     RDMA_LOG(2) << "thpt bench server started!";
     // run for 20 sec
-    for (uint i = 0; i < 20; ++i) {
+    for (uint i = 0; i < 600; ++i) {
         // server does nothing because it is RDMA
         // client will read the reg_mem using RDMA
         sleep(1);
