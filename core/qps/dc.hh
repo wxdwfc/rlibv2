@@ -5,39 +5,16 @@
 #include "./mod.hh"
 #include "./impl.hh"
 
-#define HRD_MOD_ADD(x, N) do { \
-    x = x + 1; \
-    if(x == N) { \
-        x = 0; \
-    } \
-} while(0)
-
-
 namespace rdmaio {
 
     using namespace rmem;
 
     namespace qp {
-        /* Info published by the DCT target */
         struct __attribute__((packed)) DCAttr {
-            int lid;
-            int dct_num;
+            long unsigned int lid;
+            u32 dct_num;
             int dc_key;
         };
-
-        /* Get the LID of a port on the device specified by @ctx */
-        static inline uint16_t hrd_get_local_lid(struct ibv_context *ctx, int dev_port_id) {
-            assert(ctx != NULL && dev_port_id >= 1);
-
-            struct ibv_port_attr attr;
-            if (ibv_query_port(ctx, dev_port_id, &attr)) {
-                printf("HRD: ibv_query_port on port %d of device %s failed! Exiting.\n",
-                       dev_port_id, ibv_get_device_name(ctx->device));
-                assert(false);
-            }
-
-            return attr.lid;
-        }
 
         /**
          * An abstraction of DC target. When receive the `connection` request
@@ -50,55 +27,48 @@ namespace rdmaio {
         private:
             struct ibv_exp_dct *dct;
             struct ibv_srq *srq;
+        public:
+            const QPConfig my_config;
 
-            DCTarget(Arc<RNic> nic, int dc_key) {
-                // for DC target
-                struct ibv_pd *pd = nic->get_pd();
-                struct ibv_context *ctx = nic->get_ctx();
-
-                struct ibv_cq *tmp_cq = ibv_create_cq(ctx, 128, NULL, NULL, 0);
-
-                /* Create SRQ. SRQ is required to init DCT target, but we don't used it */
-                struct ibv_srq_init_attr attr;
-                memset((void *) &attr, 0, sizeof(attr));
-                attr.attr.max_wr = 100;
-                attr.attr.max_sge = 1;
-                this->srq = ibv_create_srq(pd, &attr);
-
-                /* Create one DCT target per port */
-                {
-                    const uint8_t port = 1;
-                    struct ibv_exp_dct_init_attr dctattr;
-                    memset((void *) &dctattr, 0, sizeof(dctattr));
-                    dctattr.pd = pd;
-                    dctattr.cq = tmp_cq;
-                    dctattr.srq = srq;
-                    dctattr.dc_key = dc_key;
-                    dctattr.port = port;
-                    dctattr.access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
-                    dctattr.min_rnr_timer = 2;
-                    dctattr.tclass = 0;
-                    dctattr.flow_label = 0;
-                    dctattr.mtu = IBV_MTU_4096;
-                    dctattr.pkey_index = 0;
-                    dctattr.hop_limit = 1;
-                    dctattr.create_flags = 0;
-                    dctattr.inline_size = 60;
-
-                    this->dct = ibv_exp_create_dct(ctx, &dctattr);
-                    assert(this->dct != NULL);
-                    /* Publish DCT info */
-                    this->remote_dct_attr.lid = hrd_get_local_lid(ctx, port);
-                    this->remote_dct_attr.dct_num = dct->dct_num;
-                    this->remote_dct_attr.dc_key = dc_key;
+            DCTarget(Arc<RNic> nic, const QPConfig &config): my_config(config) {
+                // 1. create cq
+                auto res = Impl::create_cq(nic, my_config.max_send_sz());
+                if (res != IOCode::Ok) {
+                    RDMA_LOG(4) << "Error on creating CQ: " << std::get<1>(res.desc);
+                    return;
                 }
+                struct ibv_cq *tmp_cq = std::get<0>(res.desc);
+
+                // 2. create srq
+                auto srq_res = Impl::create_srq(nic, my_config.max_send_sz(), 1);
+                if (srq_res != IOCode::Ok) {
+                    RDMA_LOG(4) << "Error on creating SRQ: " << std::get<1>(res.desc);
+                    return;
+                }
+                this->srq = std::get<0>(srq_res.desc);
+
+                // 3. create dct
+                const int dc_key = my_config.dc_key;
+                auto dct_res = Impl::create_dct(nic, 
+                                tmp_cq, this->srq, dc_key);
+                if (dct_res != IOCode::Ok) {
+                    RDMA_LOG(4) << "Error on creating DCT: " << std::get<1>(res.desc);
+                    return;
+                }
+                this->dct = std::get<0>(dct_res.desc);
+                this->remote_dct_attr = {
+                    .lid = nic->lid.value(),
+                    .dct_num = dct->dct_num,
+                    .dc_key = dc_key
+                };
             }
 
         public:
             struct DCAttr remote_dct_attr;
 
-            static Option<Arc<DCTarget>> create(Arc<RNic> nic) {
-                auto res = Arc<DCTarget>(new DCTarget(nic, 0x01));
+            static Option<Arc<DCTarget>> create(Arc<RNic> nic, 
+                                    const QPConfig &config) {
+                auto res = Arc<DCTarget>(new DCTarget(nic, config));
                 return Option<Arc<DCTarget>>(std::move(res));
             }
 
@@ -113,138 +83,159 @@ namespace rdmaio {
             }
         };
 
-
-        class DC {
+        /**
+         * an abstraction of DC initiator.
+        */
+        class DC : public Dummy, public std::enable_shared_from_this<DC> {
         public:
-            struct ibv_qp *qp;
-            struct ibv_cq *cq;
+            const QPConfig my_config;
 
-            DC(Arc<RNic> nic) {
-                // for DC target
-                struct ibv_pd *pd = nic->get_pd();
-                assert(pd != NULL);
-                struct ibv_context *ctx = nic->get_ctx();
-                assert(ctx != NULL);
-
-
-                cq = ibv_create_cq(ctx, 128, NULL, NULL, 0);
-                assert(cq != NULL);
-                /* Create the DCT initiator */
-                struct ibv_qp_init_attr_ex create_attr;
-                memset((void *) &create_attr, 0, sizeof(create_attr));
-                create_attr.send_cq = cq;
-                create_attr.recv_cq = cq;
-                create_attr.cap.max_send_wr = 512;
-                create_attr.cap.max_send_sge = 1;
-                create_attr.cap.max_inline_data = 128;
-                create_attr.qp_type = IBV_EXP_QPT_DC_INI;
-                create_attr.pd = pd;
-                create_attr.comp_mask = IBV_QP_INIT_ATTR_PD;
-
-                qp = ibv_create_qp_ex(ctx, &create_attr);
-                assert(qp != NULL);
-
-                /* Modify QP to init */
-                struct ibv_exp_qp_attr modify_attr;
-                memset((void *) &modify_attr, 0, sizeof(modify_attr));
-                modify_attr.qp_state = IBV_QPS_INIT;
-                modify_attr.pkey_index = 0;
-                modify_attr.port_num = 1;
-                modify_attr.qp_access_flags = 0;
-
-                if (ibv_exp_modify_qp(qp, &modify_attr,
-                                      IBV_EXP_QP_STATE | IBV_EXP_QP_PKEY_INDEX |
-                                      IBV_EXP_QP_PORT | IBV_EXP_QP_DC_KEY)) {
-                    fprintf(stderr, "Failed to modify QP to INIT\n");
-                    assert(false);
+            DC(Arc<RNic> nic, const QPConfig &config, ibv_cq *recv_cq = nullptr) 
+                : Dummy(nic), my_config(config) {
+                // 1. cq
+                auto res = Impl::create_cq(nic, my_config.max_send_sz());
+                if (res != IOCode::Ok) {
+                    RDMA_LOG(4) << "Error on creating CQ: " << std::get<1>(res.desc);
+                    return;
                 }
+                this->cq = std::get<0>(res.desc);
 
-                /* Modify QP to RTR */
-                modify_attr.qp_state = IBV_QPS_RTR;
-                modify_attr.max_dest_rd_atomic = 0;
-                modify_attr.path_mtu = IBV_MTU_4096;
-                modify_attr.ah_attr.is_global = 0;
-
-                /* Initially, connect to the DCT target on machine 0 */
-                modify_attr.ah_attr.port_num = 1;    /* Local port */
-                modify_attr.ah_attr.sl = 0;
-
-                if (ibv_exp_modify_qp(qp, &modify_attr, IBV_EXP_QP_STATE |
-                                                        //IBV_EXP_QP_MAX_DEST_RD_ATOMIC | IBV_EXP_QP_PATH_MTU |
-                                                        IBV_EXP_QP_PATH_MTU |
-                                                        IBV_EXP_QP_AV)) {
-                    fprintf(stderr, "Failed to modify QP to RTR\n");
-                    assert(false);
+                // 2. qp
+                auto res_qp = Impl::create_qp_ex(nic, config, cq, recv_cq);
+                if (res_qp != IOCode::Ok) {
+                    RDMA_LOG(4) << "Error on creating QP extend: " << std::get<1>(res.desc);
+                    return;
                 }
+                this->qp = std::get<0>(res_qp.desc);
 
-                /* Modify QP to RTS */
-                modify_attr.qp_state = IBV_QPS_RTS;
-                modify_attr.timeout = 14;
-                modify_attr.retry_cnt = 7;
-                modify_attr.rnr_retry = 7;
-                modify_attr.max_rd_atomic = 16;
-                if (ibv_exp_modify_qp(qp, &modify_attr,
-                                      IBV_EXP_QP_STATE | IBV_EXP_QP_TIMEOUT | IBV_EXP_QP_RETRY_CNT |
-                                      IBV_EXP_QP_RNR_RETRY | IBV_EXP_QP_MAX_QP_RD_ATOMIC)) {
-                    fprintf(stderr, "Failed to modify QP to RTS\n");
-                    assert(false);
+                // 3. bring status to rtr and rts
+                if (!bring_dc_to_init(qp) || !bring_dc_to_rtr(qp) || 
+                    !bring_dc_to_rts(qp)) {
+                    RDMA_ASSERT(false);
+                    this->cq = nullptr; 
                 }
             }
 
-        public:
-            static Option<Arc<DC>> create(Arc<RNic> nic) {
-                auto res = Arc<DC>(new DC(nic));
+            QPAttr my_attr() const override {
+                return {.addr = nic->addr.value(),
+                        .lid = nic->lid.value(),
+                        .psn = static_cast<u64>(my_config.rq_psn),
+                        .port_id = static_cast<u64>(nic->id.port_id),
+                        .qpn = static_cast<u64>(qp->qp_num),
+                        .qkey = static_cast<u64>(0)};
+            }
+            static Option<Arc<DC>> create(Arc<RNic> nic, const QPConfig &config) {
+                auto res = Arc<DC>(new DC(nic, config));
                 return Option<Arc<DC>>(std::move(res));
             }
 
-            int post_send(
-                    ibv_exp_wr_opcode op, int payload_sz,
-                    int lkey, uint64_t laddr, ibv_ah *ah,
-                    int rkey, uint64_t raddr, DCAttr *remote_dct_attr
-            ) {
+            struct ReqDesc {
+                // `op` could be IBV_EXP_WR_RDMA_READ / IBV_EXP_WR_RDMA_WRITE / IBV_EXP_WR_RDMA_ATOMIC
+                ibv_exp_wr_opcode op; 
+                // send flags assign the SIGNALED request
+                unsigned int send_flags;
+                // remote address handler
+                ibv_ah *ah;
+                // remote DCT target num
+                u32 dct_num;
+                // remote DCT access key
+                int dc_key;
+                // length of the request
+                u32 len = 0;
+            };
+
+            struct ReqPayload {
+                u64 laddr = 0; 
+                u64 raddr = 0;
+                mr_key_t lkey;
+                mr_key_t rkey;
+            };
+
+            Result<std::string> post_send(
+                    const ReqDesc &desc, const ReqPayload &payload) {
                 struct ibv_exp_send_wr wr, *bad_wr;
                 struct ibv_wc wc;
                 struct ibv_sge sg_list;
 
+                sg_list.length = desc.len;
+                sg_list.lkey = payload.lkey;
+
                 wr.next = NULL;
                 wr.num_sge = 1;
-                wr.exp_opcode = op;
-                wr.exp_send_flags = IBV_EXP_SEND_SIGNALED;
+                wr.exp_opcode = desc.op;
+                wr.exp_send_flags = desc.send_flags;
 
-                sg_list.length = payload_sz;
-                sg_list.lkey = lkey;
-
-                /* Remote */
-                wr.wr.rdma.rkey = rkey;
-
-                /* Routing */
-                wr.dc.ah = ah;      // via remote
-                wr.dc.dct_access_key = remote_dct_attr->dc_key;
-                wr.dc.dct_number = remote_dct_attr->dct_num;
-
-                wr.wr.rdma.remote_addr = raddr;
-                sg_list.addr = laddr;
+                
+                // remote info
+                wr.wr.rdma.rkey = payload.rkey;
+                wr.wr.rdma.remote_addr = payload.raddr;
+                
+                // dc
+                wr.dc.ah = desc.ah; 
+                wr.dc.dct_access_key = desc.dc_key;
+                wr.dc.dct_number = desc.dct_num;
+                sg_list.addr = payload.laddr;
                 wr.sg_list = &sg_list;
 
                 int err = ibv_exp_post_send(qp, &wr, &bad_wr);
-                if (err != 0) {
-                    fprintf(stderr, "Failed to post send. Error = %d\n", err);
-                    assert(false);
+                if (0 == err) {
+                    return Ok(std::string(""));
                 }
-                return 0;
+                return Err(std::string(strerror(errno)));
             }
 
-            int poll_comp() {
-                struct ibv_wc wc;
-                int ret;
-                while (1) {
-                    ret = ibv_poll_cq(this->cq, 1, &wc);
-                    if (ret == 1) {
-                        assert(wc.status == IBV_WC_SUCCESS);
-                        break;
-                    }
-                }
-                return ret;
+            Result<ibv_wc> wait_one_comp(const double &timeout = ::rdmaio::Timer::no_timeout()) {
+                Timer t;
+                std::pair<int, ibv_wc> res;
+                do
+                {
+                    // poll one comp
+                    res = poll_send_comp();
+                } while (res.first == 0 && // poll result is 0
+                         t.passed_msec() <= timeout);
+                if (res.first == 0)
+                    return Timeout(res.second);
+                if (unlikely(res.first < 0 || res.second.status != IBV_WC_SUCCESS))
+                    return Err(res.second);
+                return Ok(res.second);
+            }
+
+            static bool bring_dc_to_init(ibv_qp *qp) {
+                struct ibv_exp_qp_attr qp_attr = {};
+                qp_attr.qp_state = IBV_QPS_INIT;
+                qp_attr.pkey_index = 0;
+                qp_attr.port_num = 1;
+                qp_attr.qp_access_flags = 0;
+                long flags = IBV_EXP_QP_STATE | IBV_EXP_QP_PKEY_INDEX |
+                                      IBV_EXP_QP_PORT | IBV_EXP_QP_DC_KEY;
+
+                return ibv_exp_modify_qp(qp, &qp_attr, flags) == 0;
+            }
+
+            static bool bring_dc_to_rtr(ibv_qp *qp) {
+                struct ibv_exp_qp_attr qp_attr = {};
+                qp_attr.qp_state = IBV_QPS_RTR;
+                qp_attr.path_mtu = IBV_MTU_4096;
+                qp_attr.ah_attr.is_global = 0;
+                qp_attr.ah_attr.port_num = 1;
+                qp_attr.ah_attr.sl = 0;
+                long flags = IBV_EXP_QP_STATE |
+                            IBV_EXP_QP_PATH_MTU |
+                            IBV_EXP_QP_AV;
+
+                return ibv_exp_modify_qp(qp, &qp_attr, flags) == 0;
+            }
+
+            static bool bring_dc_to_rts(ibv_qp *qp) {
+                struct ibv_exp_qp_attr qp_attr = {};
+                qp_attr.qp_state = IBV_QPS_RTS;
+                qp_attr.timeout = 50;
+                qp_attr.retry_cnt = 5;
+                qp_attr.rnr_retry = 5;
+                qp_attr.max_rd_atomic = 16;
+                long flags = IBV_EXP_QP_STATE | IBV_EXP_QP_TIMEOUT | IBV_EXP_QP_RETRY_CNT |
+                                      IBV_EXP_QP_RNR_RETRY | IBV_EXP_QP_MAX_QP_RD_ATOMIC;
+                return ibv_exp_modify_qp(qp, &qp_attr, flags) == 0;
             }
 
             ~DC() {

@@ -13,7 +13,7 @@ DEFINE_int64(reg_mem_name, 73, "The name to register an MR at rctrl.");
 DEFINE_int64(mem_sz, 4096, "Mr size");
 DEFINE_int64(dc_num, 1, "DC number");
 DEFINE_int64(buf_size, 4096, "Server listener (UDP) port.");
-DEFINE_int64(payload_sz, 8, "Server listener (UDP) port.");
+DEFINE_int32(payload_sz, 8, "Server listener (UDP) port.");
 DEFINE_int64(threads, 10, "#Threads used.");
 DEFINE_string(machines, 
                 "localhost:8888", 
@@ -134,7 +134,7 @@ usize worker_fn(const usize &worker_id, Statics *s) {
     std::vector<Arc<DC>> dcs(0);
 
     for (int i = 0 ; i < FLAGS_dc_num; ++i) {
-        dcs.push_back(DC::create(nic).value());
+        dcs.push_back(DC::create(nic, QPConfig()).value());
     }
     /* Use the remote LID to create an address handle for it */
     int mod = FLAGS_mem_sz / FLAGS_payload_sz;
@@ -148,18 +148,16 @@ usize worker_fn(const usize &worker_id, Statics *s) {
 
         int idx = rand_val % num_machine; // shift target
         compile_fence();
-        // send READ request. Now we choose random pick
-        dcs[dc_idx]->post_send(
-                IBV_EXP_WR_RDMA_READ, FLAGS_payload_sz,
-                reg_attr.key, reg_attr.buf, 
-                address_handlers[idx],
-                remote_regs[idx].key, 
-                remote_regs[idx].buf + offset * FLAGS_payload_sz,
-                &dc_nodes[idx]
-        );
-
-        int ret = dcs[dc_idx]->poll_comp();
-        RDMA_ASSERT(ret == 1);
+        auto send_res = dcs[dc_idx]->post_send(
+            {.op = IBV_EXP_WR_RDMA_READ, .send_flags = IBV_EXP_SEND_SIGNALED,
+             .ah = address_handlers[idx], 
+             .dct_num = dc_nodes[idx].dct_num, .dc_key = dc_nodes[idx].dc_key, 
+             .len = u32(FLAGS_payload_sz)} , 
+             { .laddr = reg_attr.buf, .raddr = remote_regs[idx].buf + offset * FLAGS_payload_sz,
+                .lkey = reg_attr.key, .rkey = remote_regs[idx].key
+             } );
+        RDMA_ASSERT(send_res == IOCode::Ok);
+        RDMA_ASSERT(dcs[dc_idx]->wait_one_comp() == IOCode::Ok);
         s->increment();
     }
 }

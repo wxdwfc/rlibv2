@@ -134,7 +134,6 @@ private:
     // done, UD create done
   }
 
-  //
   static bool bring_ud_to_recv(ibv_qp *qp) {
     int rc, flags = IBV_QP_STATE;
     struct ibv_qp_attr qp_attr = {};

@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     // >>>>>>>>>> server side <<<<<<<<<<<
     // remote dt node
     Arc<DCTarget> dc_node[2];
-    dc_node[0] = DCTarget::create(nic).value();
+    dc_node[0] = DCTarget::create(nic, QPConfig()).value();
     
     ctrl.registered_dcs.reg("server_dc", dc_node[0]);
     RDMA_ASSERT(ctrl.opened_nics.reg(FLAGS_reg_nic_name, nic));
