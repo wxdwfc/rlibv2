@@ -179,6 +179,8 @@ public:
 
 #include "rc.hh"
 #include "ud.hh"
+#include "dc.hh"
+
 //#include "op.hh"
 
 namespace rdmaio {
@@ -191,6 +193,8 @@ using register_id_t = u64;
 using RCFactory = Factory<register_id_t, RC>;
 
 using QPFactory = Factory<std::string, Dummy>;
+
+using DCFactory = Factory<std::string, DCTarget>;
 
 const usize kMaxQPNameLen = 63; // the name to index a QP in Factory should be less than 63 bytes
 

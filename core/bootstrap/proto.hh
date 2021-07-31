@@ -19,6 +19,7 @@ enum RCtrlBinderIdType : rpc_id_t {
   CreateRCM,     // create an RC which uses message (for two-sided)
   DeleteRC,
   FetchQPAttr,  // fetch a created QP's attr. useful for UD QP
+  FetchDCAttr,  // fetch a DC attr. used for DCT
   Reserved,
 };
 
@@ -76,6 +77,12 @@ struct __attribute__((packed)) RCReq {
 struct __attribute__((packed)) RCReply {
   CallbackStatus status;
   ::rdmaio::qp::QPAttr attr;
+  u64 key;
+};
+
+struct __attribute__((packed)) DCReply {
+  CallbackStatus status;
+  ::rdmaio::qp::DCAttr attr;
   u64 key;
 };
 
