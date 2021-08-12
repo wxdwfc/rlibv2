@@ -64,10 +64,25 @@ public:
 
   ~Dummy() {
     // some clean ups
-    if(qp) {
+    if (qp) {
       int rc = ibv_destroy_qp(qp);
       RDMA_VERIFY(WARNING, rc == 0)
-          << "Failed to destroy QP " << strerror(errno);
+        << "Failed to destroy QP " << strerror(errno);
+      qp = nullptr;
+    }
+
+    if (cq) {
+      int res = ibv_destroy_cq(cq);
+      RDMA_VERIFY(WARNING, res == 0)
+        << "Failed to destroy cq " << strerror(errno);
+      cq = nullptr;
+    }
+
+    if (recv_cq) {
+      int res = ibv_destroy_cq(recv_cq);
+      RDMA_VERIFY(WARNING, res == 0)
+        << "Failed to destroy recv_cq " << strerror(errno);
+      recv_cq = nullptr;
     }
   }
 
